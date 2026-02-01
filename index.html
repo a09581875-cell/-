@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stock Manager Pro</title>
+    <title>Stock Manager Pro ✨ AI</title>
     <!-- iOS PWA 設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -22,12 +22,15 @@
         .anim-fade { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         input[type="date"] { color-scheme: dark; }
+        .prose { color: #cbd5e1; font-size: 0.875rem; line-height: 1.6; }
+        .prose strong { color: #f8fafc; font-weight: 700; }
+        .prose ul { list-style-type: disc; padding-left: 1.25rem; margin: 0.5rem 0; }
     </style>
 </head>
 <body>
     <div id="loader">
         <div class="spinner"></div>
-        <div id="loader-status" style="margin-top:15px; font-size:12px; color:#94a3b8;">驗證雲端憑證 V15.6...</div>
+        <div id="loader-status" style="margin-top:15px; font-size:12px; color:#94a3b8;">驗證雲端與 AI 模組 V16.0...</div>
     </div>
     <div id="app"></div>
 
@@ -37,7 +40,7 @@
         import { memo } from 'https://esm.sh/preact@10.19.3/compat';
         import htm from 'https://esm.sh/htm@3.1.1';
         
-        // --- Firebase SDK 11.6.1 ---
+        // --- Firebase SDK ---
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
@@ -45,7 +48,7 @@
         const html = htm.bind(h);
 
         // ==========================================
-        //  Firebase 配置 (已校準最新設定)
+        //  配置區 (Firebase & Gemini)
         // ==========================================
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyD1k6xVEja5RSYdbuYqBMgXvH99uvJ8hwI",
@@ -56,6 +59,7 @@
             appId: "1:792066701006:web:1312cde0e3c1572c7d029f",
             measurementId: "G-RG1BMS697M"
         };
+        const GEMINI_API_KEY = ""; // 環境自動注入
         const appId = FIREBASE_CONFIG.projectId;
 
         // --- ICON 元件 ---
@@ -70,47 +74,91 @@
                 globe: html`<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>`,
                 cloud: html`<path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M17.5 19a5.5 5.5 0 0 0 2-10.5c0-4.418-3.582-8-8-8s-8 3.582-8 8a5.5 5.5 0 0 0 2 10.5"/>`,
                 loader: html`<path d="M21 12a9 9 0 1 1-6.219-8.56" />`,
-                upload: html`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>`,
+                sparkles: html`<path d="m12 3 1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M21 17v4"/><path d="M19 19h4"/>`,
                 alert: html`<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`,
                 zap: html`<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />`,
-                settings: html`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>`
+                settings: html`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1-2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>`
             };
             return html`<svg xmlns="http://www.w3.org/2000/svg" width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class=${className}>${paths[name] || html`<circle cx="12" cy="12" r="10" />`}</svg>`;
         });
 
-        // 多代理路徑
-        const fetchWithProxy = async (targetUrl, signal) => {
-            const proxies = [
-                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-            ];
-            for (const createProxyUrl of proxies) {
+        // --- Gemini API 呼叫函數 (Exponential Backoff) ---
+        const callGemini = async (prompt, systemPrompt = "你是一位資深的股票投資分析師，請用繁體中文回應。", retries = 5, delay = 1000) => {
+            const apiKey = GEMINI_API_KEY;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            for (let i = 0; i < retries; i++) {
                 try {
-                    const res = await fetch(createProxyUrl(targetUrl), { signal });
-                    if (!res.ok) continue;
-                    return await res.json();
-                } catch (e) { if (signal?.aborted) throw e; continue; }
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }],
+                            systemInstruction: { parts: [{ text: systemPrompt }] },
+                            tools: [{ google_search: {} }]
+                        })
+                    });
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text || "AI 無法生成回應。";
+                } catch (e) {
+                    if (i === retries - 1) throw e;
+                    await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
+                }
             }
-            throw new Error('代理繁忙');
         };
 
+        // --- 組件：AI 分析對話框 ---
+        const AIModal = memo(({ isOpen, onClose, content, loading, title }) => {
+            if (!isOpen) return null;
+            return html`
+                <div class="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+                    <div class="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-800 shadow-2xl flex flex-col max-h-[80vh]">
+                        <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                            <h3 class="font-bold text-indigo-400 flex items-center gap-2">
+                                <${Icon} name="sparkles" size=${18} /> ${title}
+                            </h3>
+                            <button onClick=${onClose} class="p-2 text-slate-400 hover:text-white"><${Icon} name="x" /></button>
+                        </div>
+                        <div class="p-5 overflow-y-auto no-scrollbar prose">
+                            ${loading ? html`
+                                <div class="flex flex-col items-center py-10 space-y-4">
+                                    <div class="spinner border-indigo-500"></div>
+                                    <div class="text-slate-500 text-sm animate-pulse">Gemini AI 正在深度分析數據中...</div>
+                                </div>
+                            ` : html`
+                                <div dangerouslySetInnerHTML=${{ __html: content.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></div>
+                            `}
+                        </div>
+                        <div class="p-4 border-t border-slate-800 text-center">
+                            <button onClick=${onClose} class="bg-slate-800 px-6 py-2 rounded-xl text-sm font-bold text-white">了解</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
         // --- 組件：持倉項目 ---
-        const PortfolioItem = memo(({ stock, onEditPrice, onEditCorrection }) => {
+        const PortfolioItem = memo(({ stock, onEditPrice, onEditCorrection, onAnalyzeStock }) => {
             const fNum = (n) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
             const fInt = (n) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
             return html`
-                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 transition-all hover:border-slate-700 mb-4 anim-fade shadow-lg">
+                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 transition-all hover:border-slate-700 mb-4 shadow-lg relative group">
                     <div class="flex justify-between items-start mb-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-sm border border-slate-700 shadow-inner">
+                            <div class="w-10 h-10 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-sm border border-slate-700">
                                 ${stock.code.substring(0,2)}
                             </div>
                             <div>
-                                <div class="font-bold text-base leading-none mb-1 text-white">${stock.code}</div>
+                                <div class="font-bold text-base text-white flex items-center gap-2">
+                                    ${stock.code}
+                                    <button onClick=${() => onAnalyzeStock(stock.code)} class="opacity-0 group-hover:opacity-100 text-indigo-400 p-1 bg-indigo-400/10 rounded transition-all">
+                                        <${Icon} name="sparkles" size=${12}/>
+                                    </button>
+                                </div>
                                 <div class="text-[10px] text-slate-500 truncate w-32 font-medium">${stock.name || '---'}</div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-1 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-700/50 shadow-inner">
+                        <div class="flex items-center gap-1 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-700/50">
                             <span class="text-xs text-slate-500 font-bold">$</span>
                             <input type="number" step="0.01" value=${stock.price} onInput=${e => onEditPrice(stock.code, e.target.value)} class="bg-transparent text-right font-bold text-lg w-24 outline-none ${stock.price > stock.avg ? 'text-red-400' : 'text-green-400'}"/>
                         </div>
@@ -139,17 +187,15 @@
         const TradeModal = memo(({ isOpen, onClose, onSubmit, accountSummary }) => {
             const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], code: '', type: 'buy', price: '', quantity: '', fee: 0 });
             const [search, setSearch] = useState({ loading: false, results: [] });
-            const searchAbort = useRef(null);
             const searchTimer = useRef(null);
 
             const handleSearch = async (q) => {
                 if(!q || q.length < 1) return setSearch({loading:false, results:[]});
-                if (searchAbort.current) searchAbort.current.abort();
-                searchAbort.current = new AbortController();
                 setSearch(p=>({...p, loading:true}));
                 try {
-                    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${q}&quotesCount=5&newsCount=0&_t=${Date.now()}`;
-                    const json = await fetchWithProxy(url, searchAbort.current.signal);
+                    const url = `https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/search?q=' + q + '&quotesCount=5&newsCount=0')}`;
+                    const res = await fetch(url);
+                    const json = await res.json();
                     setSearch({ loading:false, results: json.quotes?.filter(x=>x.isYahooFinance)||[] });
                 } catch { setSearch({ loading:false, results:[] }); }
             };
@@ -161,28 +207,28 @@
             if (!isOpen) return null;
 
             return html`
-                <div class="fixed inset-0 bg-black/80 z-[100] flex items-end justify-center p-4 sm:items-center backdrop-blur-sm animate-fade-in">
-                    <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-5 space-y-4 animate-slide-up shadow-2xl">
-                        <div class="flex justify-between items-center"><h3 class="font-bold text-white text-lg">新增交易紀錄</h3><button onClick=${onClose} class="p-2 active:bg-slate-800 rounded-full transition-colors"><${Icon} name="x" class="text-slate-400"/></button></div>
+                <div class="fixed inset-0 bg-black/80 z-[150] flex items-end justify-center p-4 sm:items-center backdrop-blur-sm animate-fade-in">
+                    <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-5 space-y-4 animate-slide-up shadow-2xl overflow-y-auto max-h-screen no-scrollbar">
+                        <div class="flex justify-between items-center"><h3 class="font-bold text-white text-lg">新增交易</h3><button onClick=${onClose} class="p-2"><${Icon} name="x" class="text-slate-400"/></button></div>
                         <div class="flex bg-slate-800 p-1 rounded-xl shadow-inner border border-slate-700/30">
                             <button type="button" onClick=${()=>setForm({...form, type:'buy'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${form.type==='buy'?'bg-red-500 text-white shadow-lg':'text-slate-400'}">買入</button>
                             <button type="button" onClick=${()=>setForm({...form, type:'sell'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${form.type==='sell'?'bg-green-500 text-white shadow-lg':'text-slate-400'}">賣出</button>
                         </div>
                         <div class="relative">
-                            <input type="text" placeholder="代號搜尋 (如 AAPL)" value=${form.code} onInput=${e=>{setForm({...form, code:e.target.value}); if(searchTimer.current) clearTimeout(searchTimer.current); searchTimer.current = setTimeout(()=>handleSearch(e.target.value), 400);}} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none uppercase focus:border-indigo-500 transition-colors shadow-inner"/>
+                            <input type="text" placeholder="代號搜尋 (如 2330.TW, AAPL)" value=${form.code} onInput=${e=>{setForm({...form, code:e.target.value}); if(searchTimer.current) clearTimeout(searchTimer.current); searchTimer.current = setTimeout(()=>handleSearch(e.target.value), 400);}} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none uppercase focus:border-indigo-500 transition-colors shadow-inner"/>
                             ${search.loading && html`<div class="absolute right-3 top-3.5 animate-spin"><${Icon} name="loader" size=${18} class="text-indigo-400"/></div>`}
-                            ${search.results.length > 0 && html`<ul class="absolute top-full w-full bg-slate-800 border border-slate-700 rounded-lg z-[110] max-h-48 overflow-auto shadow-2xl mt-1 ring-1 ring-black/50">${search.results.map(s=>html`<li onClick=${()=>{setForm({...form, code:s.symbol, name:s.shortname}); setSearch({loading:false, results:[]})}} class="p-3 hover:bg-slate-700 flex justify-between border-b border-slate-700/50 cursor-pointer transition-colors"><span>${s.symbol}</span><span class="text-xs text-slate-400">${s.shortname}</span></li>`)}</ul>`}
+                            ${search.results.length > 0 && html`<ul class="absolute top-full w-full bg-slate-800 border border-slate-700 rounded-lg z-[160] max-h-48 overflow-auto shadow-2xl mt-1">${search.results.map(s=>html`<li onClick=${()=>{setForm({...form, code:s.symbol, name:s.shortname}); setSearch({loading:false, results:[]})}} class="p-3 hover:bg-slate-700 flex justify-between border-b border-slate-700/50 cursor-pointer transition-colors"><span>${s.symbol}</span><span class="text-xs text-slate-400">${s.shortname}</span></li>`)}</ul>`}
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-[10px] text-slate-500 ml-1 font-bold tracking-wider">交易日期</label><input type="date" value=${form.date} onInput=${e=>setForm({...form, date:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white text-sm outline-none shadow-inner"/></div>
-                            <div><label class="text-[10px] text-slate-500 ml-1 font-bold tracking-wider">股數</label><input type="number" step="0.01" value=${form.quantity} onInput=${e=>setForm({...form, quantity:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white text-sm outline-none shadow-inner"/></div>
+                            <div><label class="text-[10px] text-slate-500 ml-1 font-bold">日期</label><input type="date" value=${form.date} onInput=${e=>setForm({...form, date:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white text-sm outline-none shadow-inner"/></div>
+                            <div><label class="text-[10px] text-slate-500 ml-1 font-bold">股數</label><input type="number" step="0.01" value=${form.quantity} onInput=${e=>setForm({...form, quantity:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white text-sm outline-none shadow-inner"/></div>
                         </div>
-                        <div><label class="text-[10px] text-slate-500 ml-1 font-bold tracking-wider">成交單價</label><input type="number" step="0.01" value=${form.price} onInput=${e=>setForm({...form, price:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none shadow-inner"/></div>
-                        <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800 space-y-2 shadow-inner">
+                        <div><label class="text-[10px] text-slate-500 ml-1 font-bold">成交單價</label><input type="number" step="0.01" value=${form.price} onInput=${e=>setForm({...form, price:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white text-sm outline-none shadow-inner"/></div>
+                        <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800 space-y-2">
                             <div class="flex justify-between items-center text-xs text-slate-400"><span>預計{form.type==='buy'?'支出':'收入'}</span><span class="${form.type==='buy'?'text-red-400':'text-green-400'} font-extrabold tracking-tight">${form.type==='buy'?'-':'+'}$${fNum(Math.abs(cost))}</span></div>
                             <div class="flex justify-between items-center text-xs font-bold pt-2 border-t border-slate-800/50"><span class="text-slate-300">現金餘額預覽</span><div class="text-right font-mono"><span class="${remaining<0?'text-purple-400':'text-white'}">$${fNum(remaining)}</span></div></div>
                         </div>
-                        <button onClick=${()=>onSubmit(form)} class="w-full bg-indigo-600 py-3.5 rounded-xl font-bold text-white shadow-lg shadow-indigo-900/40 active:scale-95 transition-all">確認交易紀錄</button>
+                        <button onClick=${()=>onSubmit(form)} class="w-full bg-indigo-600 py-3.5 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all">✨ 確認交易紀錄</button>
                     </div>
                 </div>
             `;
@@ -198,53 +244,42 @@
             const [modal, setModal] = useState(null);
             const [update, setUpdate] = useState({ loading: false, status: '' });
             
-            // 獨立宣告表單狀態，解決按鈕點擊無效的問題
+            // AI 相關狀態
+            const [ai, setAi] = useState({ open: false, loading: false, content: '', title: '' });
+            
             const [cashForm, setCashForm] = useState({ date: new Date().toISOString().split('T')[0], type: 'deposit', amount: '', note: '' });
             const [correctionForm, setCorrectionForm] = useState({ code: '', qty: '', avgCost: '' });
 
             // 1. 初始化 Firebase
             useEffect(() => {
-                const initFirebase = async () => {
+                const init = async () => {
                     try {
                         const appInstance = initializeApp(FIREBASE_CONFIG);
                         setFbApp(appInstance);
                         const auth = getAuth(appInstance);
-                        
                         onAuthStateChanged(auth, async (u) => {
                             if (u) { setFbUser(u); setFbStatus('connected'); }
-                            else {
-                                await signInAnonymously(auth).catch((err) => {
-                                    console.error("Auth Fail:", err);
-                                    setFbStatus('error');
-                                    const statusEl = document.getElementById('loader-status');
-                                    if(statusEl) statusEl.innerHTML = `<span class="text-red-400 font-bold">身分驗證失敗 (請檢查匿名登入是否啟用)</span>`;
-                                });
-                            }
+                            else { await signInAnonymously(auth).catch(() => setFbStatus('error')); }
                         });
                     } catch (e) { setFbStatus('error'); }
                 };
-                initFirebase();
+                init();
             }, []);
 
-            // 2. 監聽數據 (關鍵：驗證後才啟動)
+            // 2. 數據監聽
             useEffect(() => {
                 if (fbStatus === 'connected' && fbUser && fbApp) {
                     const db = getFirestore(fbApp);
                     const base = `/artifacts/${appId}/users/${fbUser.uid}`;
-                    
-                    const unsubCash = onSnapshot(collection(db, `${base}/cashFlows`), s => {
-                        setData(p => ({...p, cashFlows: s.docs.map(d=>({id:d.id, ...d.data()}))}));
-                    }, () => setFbStatus('error'));
-
+                    const unsubCash = onSnapshot(collection(db, `${base}/cashFlows`), s => setData(p => ({...p, cashFlows: s.docs.map(d=>({id:d.id, ...d.data()}))})));
                     const unsubTrades = onSnapshot(collection(db, `${base}/trades`), s => setData(p => ({...p, trades: s.docs.map(d=>({id:d.id, ...d.data()}))})));
                     const unsubPrices = onSnapshot(doc(db, `${base}/settings/prices`), s => s.exists() && setData(p=>({...p, prices: s.data()})));
                     const unsubCorr = onSnapshot(doc(db, `${base}/settings/corrections`), s => s.exists() && setData(p=>({...p, corrections: s.data()})));
-                    
                     return () => { unsubCash(); unsubTrades(); unsubPrices(); unsubCorr(); };
                 }
             }, [fbStatus, fbUser, fbApp]);
 
-            // 3. 核心計算
+            // 3. 計算
             const stats = useMemo(() => {
                 let inv = {}, tIn = 0, tOut = 0;
                 [...data.trades].sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(t => {
@@ -260,15 +295,51 @@
                 const holdings = Object.entries(inv).filter(([_,i])=>i.qty>0.0001).map(([c,i]) => {
                     const p = data.prices[c] !== undefined ? data.prices[c] : i.avg;
                     const mv = p*i.qty;
-                    const pl = mv - i.cost;
-                    return {...i, code:c, price:p, mktVal:mv, pl:pl, roi:i.cost>0?(pl/i.cost)*100:0};
+                    return {...i, code:c, price:p, mktVal:mv, pl:mv-i.cost, roi:i.cost>0?((mv-i.cost)/i.cost)*100:0};
                 });
                 const sVal = holdings.reduce((s,h)=>s+h.mktVal,0), sCost = holdings.reduce((s,h)=>s+h.cost,0);
                 const rawCash = princ+tIn-tOut, cash = Math.max(0,rawCash), assets = sVal+cash;
                 return { holdings, princ, cash, sVal, sCost, assets, totalPL: assets-princ, totalROI: princ>0?(assets-princ)/princ*100:0, stockPL: sVal-sCost, stockROI: sCost>0?(sVal-sCost)/sCost*100:0, isReinv: rawCash < 0 };
             }, [data]);
 
-            // 保存功能
+            // --- ✨ AI 功能：分析資產組合 ---
+            const analyzePortfolio = async () => {
+                if (stats.holdings.length === 0) return alert("目前尚無持倉，AI 無法分析。");
+                setAi({ open: true, loading: true, content: '', title: 'AI 投資組合深度分析' });
+                try {
+                    const prompt = `分析我的投資組合。當前資產概況：
+                    總資產：$${stats.assets.toFixed(2)}
+                    投入本金：$${stats.princ.toFixed(2)}
+                    目前報酬率：${stats.totalROI.toFixed(2)}%
+                    股票市值：$${stats.sVal.toFixed(2)}
+                    現金餘額：$${stats.cash.toFixed(2)}
+                    持倉標的明細：${JSON.stringify(stats.holdings.map(h => ({ code: h.code, qty: h.qty, roi: h.roi.toFixed(1) + '%' })))}
+                    請針對資產配置比例、報酬率表現以及目前的市場風險給出 3-5 點建議。並分析前幾大標的的潛力。`;
+                    
+                    const res = await callGemini(prompt);
+                    setAi(p => ({ ...p, loading: false, content: res }));
+                } catch (e) {
+                    setAi(p => ({ ...p, loading: false, content: "AI 分析失敗，請確認網路連線或稍後再試。" }));
+                }
+            };
+
+            // --- ✨ AI 功能：個股簡析 ---
+            const analyzeStock = async (code) => {
+                setAi({ open: true, loading: true, content: '', title: `AI 個股觀點: ${code}` });
+                try {
+                    const prompt = `請針對股票代號 ${code} 進行簡短的市場地位分析。包含：
+                    1. 這家公司主要是做什麼的？
+                    2. 目前在所屬行業的競爭優勢？
+                    3. 最近市場對該公司的主要情緒是看多還是看空？(參考 Google 搜尋結果)
+                    4. 作為長期投資標的的建議評價。`;
+                    
+                    const res = await callGemini(prompt, "你是一位專業的股票研究員。");
+                    setAi(p => ({ ...p, loading: false, content: res }));
+                } catch (e) {
+                    setAi(p => ({ ...p, loading: false, content: "AI 分析失敗。" }));
+                }
+            };
+
             const handleSave = useCallback(async (type, item, silent = false) => {
                 if (!fbUser) return;
                 const db = getFirestore(fbApp);
@@ -280,19 +351,14 @@
                         const { id, ...cleanItem } = item;
                         await addDoc(collection(db, `${base}/${type}`), cleanItem);
                     }
-                } catch (err) { console.error("Cloud Error:", err); }
+                } catch (err) { console.error(err); }
                 if (!silent) setModal(null);
             }, [fbUser, fbApp]);
 
             const handleDelete = async (type, id) => {
-                if(!confirm('確定要刪除此筆資料嗎？') || !fbUser) return;
+                if(!confirm('確定要刪除嗎？') || !fbUser) return;
                 await deleteDoc(doc(getFirestore(fbApp), `/artifacts/${appId}/users/${fbUser.uid}/${type}`, id));
             };
-
-            // 修復 ReferenceError: onTradeSubmit is not defined
-            const onTradeSubmit = useCallback((form) => {
-                handleSave('trades', form);
-            }, [handleSave]);
 
             const handleUpdatePrices = async () => {
                 const stocks = stats.holdings.map(h=>h.code);
@@ -304,8 +370,9 @@
                     await Promise.all(batch.map(async (c) => {
                         try {
                             const ctl = new AbortController(); setTimeout(()=>ctl.abort(), 6000);
-                            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${c}?interval=1d&range=1d&_t=${Date.now()}`;
-                            const json = await fetchWithProxy(url, ctl.signal);
+                            const url = `https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + c + '?interval=1d&range=1d')}`;
+                            const res = await fetch(url, { signal: ctl.signal });
+                            const json = await res.json();
                             const p = json.chart?.result?.[0]?.meta?.regularMarketPrice;
                             if(p) newP[c] = p;
                         } catch {}
@@ -322,8 +389,7 @@
                 reader.onload = async (event) => {
                     try {
                         const json = JSON.parse(event.target.result);
-                        if (!confirm("確定要將舊備份同步至雲端嗎？")) return;
-                        setUpdate({loading:true, status: '批次資料上傳中...'});
+                        setUpdate({loading:true, status: '批次上傳中...'});
                         const db = getFirestore(fbApp);
                         const base = `/artifacts/${appId}/users/${fbUser.uid}`;
                         const runBatchUpload = async (type, items) => {
@@ -340,8 +406,8 @@
                         if (json.trades) await runBatchUpload('trades', json.trades);
                         if (json.cashFlows) await runBatchUpload('cashFlows', json.cashFlows);
                         if (json.corrections) await setDoc(doc(db, `${base}/settings/corrections`), json.corrections);
-                        alert("✅ 雲端同步成功！");
-                    } catch (err) { alert("❌ 匯入失敗，請確認檔案格式"); }
+                        alert("✅ 同步成功！");
+                    } catch (err) { alert("❌ 格式不支援"); }
                     setUpdate({loading:false, status: ''});
                 };
                 reader.readAsText(file);
@@ -349,7 +415,7 @@
             };
 
             useEffect(() => {
-                if (fbStatus === 'connected' || fbStatus === 'error') {
+                if (fbStatus !== 'connecting') {
                     const l = document.getElementById('loader');
                     if(l) { l.style.opacity=0; setTimeout(()=>l.remove(), 500); }
                 }
@@ -360,15 +426,18 @@
 
             return html`
                 <div class="pb-safe-bottom min-h-screen anim-fade overflow-x-hidden">
-                    ${update.loading && html`<div class="fixed inset-0 bg-black/85 z-[200] flex flex-col items-center justify-center backdrop-blur-md animate-fade-in"><div class="spinner mb-6"></div><div class="text-indigo-400 font-bold tracking-widest text-lg">${update.status}</div><div class="text-slate-500 text-xs mt-2">上傳完畢前請勿離開</div></div>`}
+                    ${update.loading && html`<div class="fixed inset-0 bg-black/85 z-[300] flex flex-col items-center justify-center backdrop-blur-md"><div class="spinner mb-6"></div><div class="text-indigo-400 font-bold tracking-widest text-lg">${update.status}</div></div>`}
                     
+                    <!-- AI 分析 Modal -->
+                    <${AIModal} isOpen=${ai.open} onClose=${()=>setAi(p=>({...p, open:false}))} content=${ai.content} loading=${ai.loading} title=${ai.title} />
+
                     <div class="bg-slate-900 px-5 pt-6 pb-4 rounded-b-3xl shadow-2xl border-b border-slate-800 relative">
                         <div class="grid grid-cols-2 gap-6 mb-4">
                             <div>
                                 <div class="text-slate-400 text-[10px] font-bold mb-1 flex items-center gap-1 uppercase tracking-wider"><${Icon} name="wallet" size=${10}/> 資金總淨值</div>
                                 <div class="text-2xl font-bold tracking-tight text-white">$${fNum(stats.assets)}</div>
                                 <div class="mt-2 pt-2 border-t border-slate-800 text-xs text-slate-500 font-bold">
-                                    累計本金 $${fInt(stats.princ)}
+                                    投入本金 $${fInt(stats.princ)}
                                     <div class="font-bold ${stats.totalPL >= 0 ? 'text-indigo-400' : 'text-slate-400'}">${stats.totalPL>=0?'+':''}${fInt(stats.totalPL)} (${stats.totalROI.toFixed(1)}%)</div>
                                 </div>
                             </div>
@@ -386,7 +455,10 @@
                                 <${Icon} name=${fbStatus==='connected' ? 'cloud' : 'alert'} size=${9} class=${fbStatus==='connecting'?'animate-spin':''}/> 
                                 ${fbStatus==='connected' ? '雲端同步中' : fbStatus==='error' ? '連線錯誤' : '正在連線...'}
                             </div>
-                            ${stats.isReinv && html`<div class="bg-indigo-500/10 rounded-full px-2 py-0.5 flex items-center gap-1 border border-indigo-500/20 shadow-sm"><${Icon} name="zap" size=${10} class="text-indigo-400"/><span class="text-[9px] text-indigo-300 font-bold uppercase tracking-tighter">複利模式</span></div>`}
+                            <button onClick=${analyzePortfolio} class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded-full flex items-center gap-1 border border-indigo-500/30 hover:bg-indigo-600/40 transition-all">
+                                <${Icon} name="sparkles" size=${10}/>
+                                <span class="text-[9px] font-bold uppercase tracking-tighter">✨ AI 投顧分析</span>
+                            </button>
                         </div>
                     </div>
 
@@ -405,7 +477,7 @@
                                     <${Icon} name="globe" size=${14}/> 更新現價 (極速代理)
                                 </button>
                                 ${stats.holdings.map(s => html`
-                                    <${PortfolioItem} key=${s.code} stock=${s} onEditPrice=${(c,v)=>handleSave('prices', {...data.prices, [c]: parseFloat(v)||0}, true)} onEditCorrection=${(s)=>{setCorrectionForm({code:s.code, qty:s.qty, avgCost:s.avgCost}); setModal('correction')}} />
+                                    <${PortfolioItem} key=${s.code} stock=${s} onAnalyzeStock=${analyzeStock} onEditPrice=${(c,v)=>handleSave('prices', {...data.prices, [c]: parseFloat(v)||0}, true)} onEditCorrection=${(s)=>{setCorrectionForm({code:s.code, qty:s.qty, avgCost:s.avgCost}); setModal('correction')}} />
                                 `)}
                             </div>
                         `}
@@ -416,7 +488,7 @@
                                     <button onClick=${()=>setModal('cash')} class="bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"><${Icon} name="plus" size=${14} /> 資金異動</button>
                                 </div>
                                 ${data.cashFlows.map(f => html`
-                                    <div key=${f.id} class="bg-slate-900 p-3 rounded-lg flex justify-between items-center border border-slate-800 group relative">
+                                    <div key=${f.id} class="bg-slate-900 p-3 rounded-lg flex justify-between items-center border border-slate-800 group relative overflow-hidden mb-2">
                                         <div class="flex items-center gap-3 pl-1">
                                             <div class="p-2 rounded-full ${f.type==='deposit' ? 'bg-blue-500/10 text-blue-400' : 'bg-orange-500/10 text-orange-400'}"><${Icon} name=${f.type==='deposit'?'plus':'trash'} size=${18}/></div>
                                             <div><div class="text-sm font-bold text-slate-200">${f.note||(f.type==='deposit'?'入金':'出金')}</div><div class="text-[10px] text-slate-500 font-medium">${f.date}</div></div>
@@ -430,12 +502,12 @@
                             <div class="space-y-4">
                                 <button onClick=${()=>setModal('trade')} class="w-full bg-slate-900 border border-slate-700 border-dashed text-indigo-400 py-3 rounded-xl text-sm font-bold flex justify-center gap-2 transition-all active:scale-[0.98] hover:bg-slate-800 shadow-md"><${Icon} name="plus" size=${16} /> 新增交易紀錄</button>
                                 ${data.trades.map(t => html`
-                                    <div key=${t.id} class="bg-slate-900 p-3 rounded-lg border border-slate-800 flex justify-between items-center group relative">
+                                    <div key=${t.id} class="bg-slate-900 p-3 rounded-lg border border-slate-800 flex justify-between items-center group relative mb-2">
                                         <div class="flex gap-3 pl-1">
                                             <div class="text-[10px] font-bold px-2 py-1 rounded h-fit mt-0.5 min-w-[3.5em] text-center ${t.type==='buy'?'bg-red-500/10 text-red-400 border border-red-500/20':'bg-green-500/10 text-green-400 border border-green-500/20'}">${t.type==='buy'?'BUY':'SELL'}</div>
                                             <div><div class="font-bold text-slate-200">${t.code}</div><div class="text-[10px] text-slate-500 font-medium">${t.date}</div></div>
                                         </div>
-                                        <div class="text-right flex items-center gap-3 pr-1"><div><div class="text-sm font-bold text-slate-200">$${(t.price * t.quantity).toLocaleString(undefined, {minimumFractionDigits:2})}</div><div class="text-[10px] text-slate-500 font-medium">$${t.price} x ${t.quantity}</div></div><button onClick=${()=>handleDelete('trades', t.id)} class="p-2 text-slate-700 hover:text-red-400 transition-opacity"><${Icon} name="trash" size=${14}/></button></div>
+                                        <div class="text-right flex items-center gap-3 pr-1"><div><div class="text-sm font-bold text-slate-200">$${(t.price * t.quantity).toLocaleString(undefined, {minimumFractionDigits:2})}</div><div class="text-[10px] text-slate-500">$${t.price} x ${t.quantity}</div></div><button onClick=${()=>handleDelete('trades', t.id)} class="p-2 text-slate-700 hover:text-red-400 transition-opacity"><${Icon} name="trash" size=${14}/></button></div>
                                     </div>
                                 `)}
                             </div>
@@ -443,16 +515,16 @@
                         ${tab === 'settings' && html`
                             <div class="space-y-4 animate-fade-in">
                                 <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-xl">
-                                    <h3 class="font-bold mb-4 flex items-center gap-2 text-white"><${Icon} name="settings" size=${18} class="text-indigo-400"/> 雲端帳戶管理</h3>
+                                    <h3 class="font-bold mb-4 flex items-center gap-2 text-white"><${Icon} name="settings" size=${18} class="text-indigo-400"/> 系統與資料管理</h3>
                                     <div class="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-4 shadow-inner">
-                                        <p class="text-xs text-slate-400 leading-relaxed font-medium">匯入舊備份：選擇您之前的 JSON 檔案，系統會使用批次模式同步至您的雲端帳號。</p>
+                                        <p class="text-xs text-slate-400 leading-relaxed font-medium">匯入舊備份：選擇您之前的 JSON 檔案，系統會使用 Batch 模式同步至您的雲端帳號。</p>
                                         <label class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-lg shadow-indigo-900/30">
                                             <${Icon} name="upload" size=${16}/> 選擇檔案並同步雲端
                                             <input type="file" accept=".json" onChange=${handleImport} class="hidden" />
                                         </label>
                                     </div>
-                                    <div class="mt-4 pt-4 border-t border-slate-800 text-center">
-                                        <p class="text-[10px] text-slate-600 font-mono">APP V15.6 | Firebase Engine Secure</p>
+                                    <div class="mt-4 pt-4 border-t border-slate-800 text-center text-slate-600">
+                                        <p class="text-[10px] font-mono tracking-widest uppercase">✨ AI Powered V16.0</p>
                                     </div>
                                 </div>
                             </div>
@@ -460,7 +532,7 @@
                     </div>
 
                     <!-- Modals -->
-                    <${TradeModal} isOpen=${modal === 'trade'} onClose=${()=>setModal(null)} onSubmit=${onTradeSubmit} accountSummary=${stats} />
+                    <${TradeModal} isOpen=${modal === 'trade'} onClose=${()=>setModal(null)} onSubmit=${(f)=>handleSave('trades', f)} accountSummary=${stats} />
 
                     ${modal === 'cash' && html`
                         <div class="fixed inset-0 bg-black/80 z-[120] flex items-end justify-center p-4 sm:items-center animate-fade-in backdrop-blur-sm">
@@ -473,7 +545,7 @@
                                 <div class="space-y-3">
                                     <input type="date" value=${cashForm.date} onInput=${e=>setCashForm({...cashForm, date:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner"/>
                                     <input type="number" placeholder="金額" value=${cashForm.amount} onInput=${e=>setCashForm({...cashForm, amount:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner"/>
-                                    <input type="text" placeholder="備註 (選填)" value=${cashForm.note} onInput=${e=>setCashForm({...cashForm, note:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner"/>
+                                    <input type="text" placeholder="備註" value=${cashForm.note} onInput=${e=>setCashForm({...cashForm, note:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner"/>
                                 </div>
                                 <button onClick=${()=>handleSave('cashFlows', cashForm)} class="w-full bg-indigo-600 py-3.5 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all">確認儲存資金紀錄</button>
                             </div>
@@ -486,7 +558,7 @@
                                 <div class="flex justify-between items-center"><h3 class="font-bold text-white flex items-center gap-2">修正數據: ${correctionForm.code}</h3><button onClick=${()=>setModal(null)} class="p-2"><${Icon} name="x" class="text-slate-400"/></button></div>
                                 <div class="space-y-3">
                                     <div class="space-y-1"><label class="text-xs text-slate-500 ml-1 font-bold">修正後總股數</label><input type="number" value=${correctionForm.qty} onInput=${e=>setCorrectionForm({...correctionForm, qty:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-yellow-600 shadow-inner"/></div>
-                                    <div class="space-y-1"><label class="text-xs text-slate-500 ml-1 font-bold">修正後平均成本</label><input type="number" step="0.01" value=${correctionForm.avgCost} onInput=${e=>setCorrectionForm({...correctionForm, avgCost:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-yellow-600 shadow-inner"/></div>
+                                    <div class="space-y-1"><label class="text-[10px] text-slate-500 ml-1 font-bold">修正後平均成本</label><input type="number" step="0.01" value=${correctionForm.avgCost} onInput=${e=>setCorrectionForm({...correctionForm, avgCost:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-yellow-600 shadow-inner"/></div>
                                 </div>
                                 <button onClick=${()=>{handleSave('corrections', {[correctionForm.code]:{qty:correctionForm.qty, avgCost:correctionForm.avgCost}})}} class="w-full bg-yellow-600 py-3.5 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all">確認修正持倉</button>
                             </div>
