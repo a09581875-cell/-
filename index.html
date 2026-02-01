@@ -22,13 +22,13 @@
         .anim-fade { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         input[type="date"] { color-scheme: dark; }
-        
-        /* 選單切換動畫 */
-        .tab-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
 <body>
-    <div id="loader"><div class="spinner"></div><div style="margin-top:15px; font-size:12px; color:#94a3b8;">啟動雲端系統 V14.3...</div></div>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div id="loader-status" style="margin-top:15px; font-size:12px; color:#94a3b8;">啟動中 V14.4...</div>
+    </div>
     <div id="app"></div>
 
     <script type="module">
@@ -37,7 +37,7 @@
         import { memo } from 'https://esm.sh/preact@10.19.3/compat';
         import htm from 'https://esm.sh/htm@3.1.1';
         
-        // Firebase SDK
+        // Firebase SDK (使用穩定版)
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
         import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
@@ -45,7 +45,7 @@
         const html = htm.bind(h);
 
         // ==========================================
-        //  設定區：Firebase 配置
+        //  Firebase 配置 (已根據您的資訊填入)
         // ==========================================
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyD1k6xVEJa5RSYdbuYqBMgXvH99uvJ8hwI",
@@ -56,11 +56,10 @@
             appId: "1:792066701006:web:1312cde0e3c1572c7d029f",
             measurementId: "G-RG1BMS697M"
         };
+        const appId = FIREBASE_CONFIG.projectId;
         // ==========================================
 
-        const appId = FIREBASE_CONFIG.projectId;
-
-        // --- 圖示元件 ---
+        // --- ICON 元件 ---
         const Icon = memo(({ name, size = 18, className = "" }) => {
             const paths = {
                 wallet: html`<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />`,
@@ -75,29 +74,28 @@
                 globe: html`<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>`,
                 cloud: html`<path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M17.5 19a5.5 5.5 0 0 0 2-10.5c0-4.418-3.582-8-8-8s-8 3.582-8 8a5.5 5.5 0 0 0 2 10.5"/>`,
                 loader: html`<path d="M21 12a9 9 0 1 1-6.219-8.56" />`,
-                alert: html`<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`
+                alert: html`<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`,
+                upload: html`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>`,
+                download: html`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>`,
+                settings: html`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>`
             };
             return html`<svg xmlns="http://www.w3.org/2000/svg" width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class=${className}>${paths[name] || html`<circle cx="12" cy="12" r="10" />`}</svg>`;
         });
 
-        // --- 多重代理抓取 ---
+        // --- 多重代理線路 ---
         const fetchWithProxy = async (targetUrl, signal) => {
             const proxies = [
                 url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-                url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
             ];
             for (const createProxyUrl of proxies) {
                 try {
                     const res = await fetch(createProxyUrl(targetUrl), { signal });
                     if (!res.ok) continue;
                     return await res.json();
-                } catch (e) {
-                    if (signal?.aborted) throw e;
-                    continue;
-                }
+                } catch (e) { if (signal?.aborted) throw e; continue; }
             }
-            throw new Error('代理全數失效');
+            throw new Error('代理繁忙');
         };
 
         const App = () => {
@@ -107,59 +105,50 @@
             const [data, setData] = useState({ cashFlows: [], trades: [], prices: {}, corrections: {} });
             const [tab, setTab] = useState('portfolio');
             const [modal, setModal] = useState(null);
-            
-            const [forms, setForms] = useState({ 
-                trade: { id: null, date: new Date().toISOString().split('T')[0], code: '', type: 'buy', price: '', quantity: '', fee: 0 }, 
-                cash: { id: null, date: new Date().toISOString().split('T')[0], type: 'deposit', amount: '', note: '' }, 
-                correction: { code: '', qty: '', avgCost: '' } 
-            });
-            
+            const [forms, setForms] = useState({ trade: { id: null, date: new Date().toISOString().split('T')[0], code: '', type: 'buy', price: '', quantity: '', fee: 0 }, cash: { id: null, date: new Date().toISOString().split('T')[0], type: 'deposit', amount: '', note: '' }, correction: { code: '', qty: '', avgCost: '' } });
             const [search, setSearch] = useState({ loading: false, results: [] });
             const [update, setUpdate] = useState({ loading: false, current: 0, total: 0, status: '' });
             const searchAbort = useRef(null);
             const searchTimer = useRef(null);
 
-            // 1. 初始化 Firebase 與驗證
+            // 1. 初始化 Firebase
             useEffect(() => {
                 const init = async () => {
                     try {
                         const appInstance = initializeApp(FIREBASE_CONFIG);
                         setFbApp(appInstance);
                         const auth = getAuth(appInstance);
-                        
-                        const userCredential = await signInAnonymously(auth);
-                        setFbUser(userCredential.user);
+                        const userCred = await signInAnonymously(auth);
+                        setFbUser(userCred.user);
                     } catch (e) {
-                        console.error("Auth Failed:", e);
+                        console.error("Auth Fail:", e);
                         setFbStatus('error');
+                        document.getElementById('loader-status').innerText = "連線失敗：請確保專案已開啟「匿名登入」";
                     }
                 };
                 init();
             }, []);
 
-            // 2. 數據流動 (Firestore Real-time)
+            // 2. 數據監聽 (Firestore)
             useEffect(() => {
                 if (fbUser && fbApp) {
                     const db = getFirestore(fbApp);
-                    const base = `/artifacts/${appId}/users/${fbUser.uid}`;
+                    const pathBase = `/artifacts/${appId}/users/${fbUser.uid}`;
                     
-                    const unsubCash = onSnapshot(collection(db, `${base}/cashFlows`), s => {
+                    const unsubCash = onSnapshot(collection(db, `${pathBase}/cashFlows`), s => {
                         setData(p => ({...p, cashFlows: s.docs.map(d=>({id:d.id, ...d.data()}))}));
                         setFbStatus('connected');
-                    }, err => {
-                        console.error("Firestore DB Error:", err);
-                        setFbStatus('error');
-                    });
+                    }, err => setFbStatus('error'));
 
-                    const unsubTrades = onSnapshot(collection(db, `${base}/trades`), s => setData(p => ({...p, trades: s.docs.map(d=>({id:d.id, ...d.data()}))})));
-                    const unsubPrices = onSnapshot(doc(db, `${base}/settings/prices`), s => s.exists() && setData(p=>({...p, prices: s.data()})));
-                    const unsubCorr = onSnapshot(doc(db, `${base}/settings/corrections`), s => s.exists() && setData(p=>({...p, corrections: s.data()})));
+                    const unsubTrades = onSnapshot(collection(db, `${pathBase}/trades`), s => setData(p => ({...p, trades: s.docs.map(d=>({id:d.id, ...d.data()}))})));
+                    const unsubPrices = onSnapshot(doc(db, `${pathBase}/settings/prices`), s => s.exists() && setData(p=>({...p, prices: s.data()})));
+                    const unsubCorr = onSnapshot(doc(db, `${pathBase}/settings/corrections`), s => s.exists() && setData(p=>({...p, corrections: s.data()})));
                     
                     return () => { unsubCash(); unsubTrades(); unsubPrices(); unsubCorr(); };
                 }
             }, [fbUser, fbApp]);
 
-            // 3. 計算邏輯
+            // 3. 計算邏輯 (與前版相同，確保精確度)
             const stats = useMemo(() => {
                 let inv = {}, tIn = 0, tOut = 0;
                 [...data.trades].sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(t => {
@@ -182,27 +171,17 @@
                 return { holdings, princ, cash, sVal, sCost, assets, totalPL: assets-princ, totalROI: princ>0?(assets-princ)/princ*100:0, stockPL: sVal-sCost, stockROI: sCost>0?(sVal-sCost)/sCost*100:0, isReinv: rawCash < 0, reinvAmt: rawCash < 0 ? Math.abs(rawCash) : 0 };
             }, [data]);
 
-            // CRUD Actions
+            // CRUD 操作
             const handleSave = async (type, item) => {
                 if (!fbUser) return;
                 const db = getFirestore(fbApp);
-                const path = `/artifacts/${appId}/users/${fbUser.uid}`;
+                const base = `/artifacts/${appId}/users/${fbUser.uid}`;
                 try {
-                    if (type === 'prices' || type === 'corrections') await setDoc(doc(db, `${path}/settings/${type}`), item);
-                    else if (item.id) {
-                        const {id, ...rest} = item;
-                        await updateDoc(doc(db, `${path}/${type}/${id}`), rest);
-                    }
-                    else await addDoc(collection(db, `${path}/${type}`), item);
-                } catch (err) { console.error("Save failed:", err); }
+                    if (type === 'prices' || type === 'corrections') await setDoc(doc(db, `${base}/settings/${type}`), item);
+                    else if (item.id) { const {id, ...rest} = item; await updateDoc(doc(db, `${base}/${type}/${id}`), rest); }
+                    else await addDoc(collection(db, `${base}/${type}`), item);
+                } catch (err) { console.error("Save error:", err); }
                 setModal(null);
-            };
-
-            const handleDelete = async (type, id) => {
-                if(!confirm('確定刪除？') || !fbUser) return;
-                try {
-                    await deleteDoc(doc(getFirestore(fbApp), `/artifacts/${appId}/users/${fbUser.uid}/${type}`, id));
-                } catch (err) { console.error("Delete failed:", err); }
             };
 
             const searchStock = async (q) => {
@@ -217,27 +196,19 @@
                 } catch(e) { if(e.name!=='AbortError') setSearch({ loading:false, results:[] }); }
             };
 
-            const handleCode = (val) => {
-                setForms(p=>({...p, trade:{...p.trade, code:val}}));
-                if(searchTimer.current) clearTimeout(searchTimer.current);
-                searchTimer.current = setTimeout(() => { if(val.length>1) searchStock(val); else setSearch({loading:false, results:[]}); }, 300);
-            };
-
             const updatePrices = async () => {
-                const codes = stats.holdings.map(h=>h.code);
-                if(!codes.length) return;
-                setUpdate({loading:true, current:0, total:codes.length, status:'連線中...'});
+                const stocks = stats.holdings.map(h=>h.code);
+                if(!stocks.length) return;
+                setUpdate({loading:true, current:0, total:stocks.length, status:'連線中...'});
                 const newP = {...data.prices};
-                for(let i=0; i<codes.length; i+=5) {
-                    const batch = codes.slice(i, i+5);
-                    setUpdate(p=>({...p, current:i, status:`同步中... ${i}/${codes.length}`}));
+                for(let i=0; i<stocks.length; i+=5) {
+                    const batch = stocks.slice(i, i+5);
+                    setUpdate(p=>({...p, current:i, status:`同步中... ${i}/${stocks.length}`}));
                     await Promise.all(batch.map(async (c) => {
                         try {
-                            const ctl = new AbortController(); 
-                            const timer = setTimeout(()=>ctl.abort(), 6000);
+                            const ctl = new AbortController(); setTimeout(()=>ctl.abort(), 7000);
                             const url = `https://query1.finance.yahoo.com/v8/finance/chart/${c}?interval=1d&range=1d&_t=${Date.now()}`;
                             const json = await fetchWithProxy(url, ctl.signal);
-                            clearTimeout(timer);
                             const p = json.chart?.result?.[0]?.meta?.regularMarketPrice;
                             if(p) newP[c] = p;
                         } catch {}
@@ -247,13 +218,47 @@
                 setUpdate({loading:false, status:''});
             };
 
-            useEffect(() => { const l = document.getElementById('loader'); if(l) { l.style.opacity=0; setTimeout(()=>l.remove(), 500); } }, []);
+            // --- 匯入備份功能 ---
+            const handleImport = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const json = JSON.parse(event.target.result);
+                        if (!json.trades || !json.cashFlows) throw new Error("格式不正確");
+                        if (!confirm("確定匯入？這將會與現有雲端資料合併（重複項需手動刪除）")) return;
+
+                        setUpdate({loading:true, status: '上傳中...'});
+                        // 批次上傳
+                        for (const t of json.trades) {
+                            const {id, ...rest} = t;
+                            await handleSave('trades', rest);
+                        }
+                        for (const c of json.cashFlows) {
+                            const {id, ...rest} = c;
+                            await handleSave('cashFlows', rest);
+                        }
+                        if (json.corrections) await handleSave('corrections', json.corrections);
+                        if (json.prices) await handleSave('prices', json.prices);
+                        
+                        alert("匯入成功！資料已同步至雲端。");
+                    } catch (err) { alert("匯入失敗：" + err.message); }
+                    setUpdate({loading:false, status: ''});
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
 
             const fNum = n => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
             const fInt = n => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
 
-            const previewCost = (Number(forms.trade.price)*Number(forms.trade.quantity))+(forms.trade.type==='buy'?(Number(forms.trade.fee)||0):-(Number(forms.trade.fee)||0));
-            const previewRemaining = stats.cash+(forms.trade.type==='buy'?-previewCost:previewCost);
+            useEffect(() => {
+                if (fbStatus === 'connected' || fbStatus === 'error') {
+                    const l = document.getElementById('loader');
+                    if(l) { l.style.opacity=0; setTimeout(()=>l.remove(), 500); }
+                }
+            }, [fbStatus]);
 
             return html`
                 <div class="pb-safe-bottom min-h-screen anim-fade">
@@ -264,7 +269,7 @@
                                 <div class="text-slate-400 text-[10px] font-bold mb-1 flex items-center gap-1"><${Icon} name="wallet" size=${10}/> 資金總淨值</div>
                                 <div class="text-2xl font-bold tracking-tight">$${fNum(stats.assets)}</div>
                                 <div class="mt-2 pt-2 border-t border-slate-800 text-xs">
-                                    <div class="text-slate-500 mb-0.5 text-[10px]">vs 投入本金 $${fInt(stats.princ)}</div>
+                                    <div class="text-slate-500 mb-0.5 text-[10px]">投入本金 $${fInt(stats.princ)}</div>
                                     <div class="font-bold ${stats.totalPL >= 0 ? 'text-indigo-400' : 'text-slate-400'}">${stats.totalPL>=0?'+':''}${fInt(stats.totalPL)} (${stats.totalROI.toFixed(1)}%)</div>
                                 </div>
                             </div>
@@ -272,25 +277,25 @@
                                 <div class="text-slate-400 text-[10px] font-bold mb-1 flex items-center gap-1"><${Icon} name="pie" size=${10}/> 股票市值</div>
                                 <div class="text-2xl font-bold tracking-tight">$${fNum(stats.sVal)}</div>
                                 <div class="mt-2 pt-2 border-t border-slate-800 text-xs">
-                                    <div class="text-slate-500 mb-0.5 text-[10px]">vs 持倉成本 $${fInt(stats.sCost)}</div>
+                                    <div class="text-slate-500 mb-0.5 text-[10px]">持倉成本 $${fInt(stats.sCost)}</div>
                                     <div class="font-bold ${stats.stockPL >= 0 ? 'text-red-400' : 'text-green-400'}">${stats.stockPL>=0?'+':''}${fInt(stats.stockPL)} (${stats.stockROI.toFixed(1)}%)</div>
                                 </div>
                             </div>
                         </div>
                         <div class="flex justify-between items-center h-6">
-                            <div class="flex items-center gap-1 text-[9px] ${fbStatus==='connected' ? 'text-blue-400' : fbStatus==='error' ? 'text-red-400' : 'text-slate-500'}">
-                                <${Icon} name=${fbStatus==='connected' ? 'cloud' : fbStatus==='error' ? 'alert' : 'loader'} size=${9} class=${fbStatus==='connecting'?'animate-spin':''}/> 
-                                ${fbStatus==='connected' ? '雲端已連線' : fbStatus==='error' ? '資料庫未建立' : '嘗試連線中...'}
+                            <div class="flex items-center gap-1 text-[9px] ${fbStatus==='connected' ? 'text-blue-400' : 'text-red-400'}">
+                                <${Icon} name=${fbStatus==='connected' ? 'cloud' : 'alert'} size=${9}/> 
+                                ${fbStatus==='connected' ? '雲端同步中' : '資料庫未就緒'}
                             </div>
-                            ${stats.isReinv ? html`<div class="bg-indigo-500/10 rounded-full px-2 py-0.5 flex items-center gap-1 border border-indigo-500/20"><${Icon} name="zap" size=${10} class="text-indigo-400"/><span class="text-[9px] text-indigo-300">複利模式</span></div>` : html`<div></div>`}
+                            ${stats.isReinv && html`<div class="bg-indigo-500/10 rounded-full px-2 py-0.5 flex items-center gap-1 border border-indigo-500/20"><${Icon} name="zap" size=${10} class="text-indigo-400"/><span class="text-[9px] text-indigo-300">複利模式</span></div>`}
                         </div>
                     </div>
 
                     <!-- Tabs -->
                     <div class="flex px-2 mt-2 sticky top-0 bg-slate-950/90 z-30 backdrop-blur-md border-b border-slate-800/50">
-                        ${['portfolio', 'capital', 'transactions'].map(t => html`
+                        ${['portfolio', 'capital', 'transactions', 'settings'].map(t => html`
                             <button key=${t} onClick=${() => setTab(t)} class="flex-1 py-3 text-xs font-bold text-center border-b-2 transition-colors ${tab === t ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-600'}">
-                                ${t === 'portfolio' ? '持倉' : t === 'capital' ? '資金' : t === 'transactions' ? '紀錄'}
+                                ${t === 'portfolio' ? '持倉' : t === 'capital' ? '資金' : t === 'transactions' ? '紀錄' : '設定'}
                             </button>
                         `)}
                     </div>
@@ -299,7 +304,7 @@
                         ${tab === 'portfolio' && html`
                             <div class="space-y-4">
                                 <button onClick=${updatePrices} disabled=${update.loading} class="w-full border py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${update.loading ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-slate-900 border-slate-800 text-indigo-400'}">
-                                    ${update.loading ? html`<${Icon} name="loader" size=${14} class="animate-spin"/> <span>${update.status}</span>` : html`<${Icon} name="globe" size=${14}/> 更新現價 (多代理線路)`}
+                                    ${update.loading ? html`<${Icon} name="loader" size=${14} class="animate-spin"/> <span>${update.status}</span>` : html`<${Icon} name="globe" size=${14}/> 更新現價 (多代理)`}
                                 </button>
                                 ${stats.holdings.map(s => html`
                                     <div key=${s.code} class="bg-slate-900 p-4 rounded-xl border border-slate-800">
@@ -313,15 +318,12 @@
                                                 <input type="number" value=${s.price} onInput=${e => { const newP = {...data.prices, [s.code]: parseFloat(e.target.value)||0}; handleSave('prices', newP); }} class="bg-transparent text-right font-bold text-lg w-20 outline-none ${s.price > s.avg ? 'text-red-400' : 'text-green-400'}"/>
                                             </div>
                                         </div>
-                                        
-                                        <!-- 明顯的成本區塊 -->
                                         <div class="bg-slate-800/40 rounded-lg p-3 grid grid-cols-2 gap-y-2 gap-x-4 mb-3 border border-slate-700/50 relative">
-                                            <button onClick=${() => { setForms(p=>({...p, correction: {code: s.code, qty: s.qty, avgCost: s.avg}})); setModal('correction'); }} class="absolute top-2 right-2 text-slate-600 hover:text-indigo-400"><${Icon} name="edit" size=${14}/></button>
+                                            <button onClick=${() => { setForms(p=>({...p, correction: {code: s.code, qty: s.qty, avgCost: s.avg}})); setModal('correction'); }} class="absolute top-2 right-2 text-slate-600"><${Icon} name="edit" size=${14}/></button>
                                             <div class="col-span-2 flex justify-between border-b border-slate-700/50 pb-2 mb-1"><span class="text-xs text-slate-400">持倉股數</span><span class="text-sm font-medium text-white">${fNum(s.qty)}</span></div>
                                             <div><span class="text-[10px] text-slate-500 block">平均成本</span><span class="text-sm font-bold text-slate-300">$${fNum(s.avg)}</span></div>
                                             <div class="text-right"><span class="text-[10px] text-slate-500 block">總成本</span><span class="text-sm font-bold text-slate-300">$${fInt(s.cost)}</span></div>
                                         </div>
-
                                         <div class="flex justify-between items-center bg-slate-950/30 p-2.5 rounded-lg border border-slate-800/30">
                                             <div class="text-xs text-slate-400">未實現損益</div>
                                             <div class="text-base font-bold flex gap-2 ${s.pl >= 0 ? 'text-red-400' : 'text-green-400'}"><span>${s.pl>=0?'+':''}${fInt(s.pl)}</span><span class="text-xs px-2 py-0.5 rounded bg-white/5">${s.roi.toFixed(1)}%</span></div>
@@ -331,7 +333,7 @@
                             </div>
                         `}
                         ${tab === 'capital' && html`
-                            <div class="space-y-4">
+                            <div class="space-y-4 animate-fade-in">
                                 <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
                                     <div><div class="text-slate-400 text-xs mb-1">可用現金餘額</div><div class="text-2xl font-bold">$${fNum(stats.cash)}</div></div>
                                     <button onClick=${()=>setModal('cash')} class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex gap-1.5"><${Icon} name="plus" size=${14}/> 資金異動</button>
@@ -342,23 +344,46 @@
                                             <div class="p-2 rounded-full ${f.type==='deposit' ? 'bg-blue-500/10 text-blue-400' : 'bg-orange-500/10 text-orange-400'}"><${Icon} name=${f.type==='deposit'?'plus':'trash'} size=${18}/></div>
                                             <div><div class="text-sm font-bold text-slate-200">${f.note||(f.type==='deposit'?'入金':'出金')}</div><div class="text-xs text-slate-500">${f.date}</div></div>
                                         </div>
-                                        <div class="flex items-center gap-3 pr-2"><div class="font-mono font-bold ${f.type==='deposit'?'text-blue-400':'text-orange-400'}">${f.type==='withdraw'?'-':'+'}${fNum(f.amount)}</div><button onClick=${()=>handleDelete('cashFlows', f.id)} class="p-2 text-slate-700 hover:text-red-400"><${Icon} name="trash" size=${14}/></button></div>
+                                        <div class="flex items-center gap-3 pr-2"><div class="font-mono font-bold ${f.type==='deposit'?'text-blue-400':'text-orange-400'}">${f.type==='withdraw'?'-':'+'}${fNum(f.amount)}</div><button onClick=${()=>deleteItem('cashFlows', f.id)} class="p-2 text-slate-700 hover:text-red-400"><${Icon} name="trash" size=${14}/></button></div>
                                     </div>
                                 `)}
                             </div>
                         `}
                         ${tab === 'transactions' && html`
-                            <div class="space-y-4">
-                                <button onClick=${()=>setModal('trade')} class="w-full bg-slate-900 border border-slate-700 border-dashed text-indigo-400 py-3 rounded-xl text-sm font-bold flex justify-center gap-2"><${Icon} name="plus" size=${16}/> 新增交易紀錄</button>
+                            <div class="space-y-4 animate-fade-in">
+                                <button onClick=${()=>setModal('trade')} class="w-full bg-slate-900 border border-slate-700 border-dashed text-indigo-400 py-3 rounded-xl text-sm font-bold flex justify-center gap-2"><${Icon} name="plus" size=${16}/> 新增交易</button>
                                 ${data.trades.map(t => html`
                                     <div key=${t.id} class="bg-slate-900 p-3 rounded-lg border border-slate-800 flex justify-between items-center group relative">
                                         <div class="flex gap-3 pl-2">
                                             <div class="text-[10px] font-bold px-2 py-1 rounded h-fit mt-0.5 ${t.type==='buy'?'bg-red-500/10 text-red-400':'bg-green-500/10 text-green-400'}">${t.type==='buy'?'BUY':'SELL'}</div>
                                             <div><div class="font-bold text-slate-200">${t.code}</div><div class="text-xs text-slate-500">${t.date}</div></div>
                                         </div>
-                                        <div class="text-right flex items-center gap-3 pr-2"><div><div class="text-sm font-bold text-slate-200">$${fNum(t.price * t.quantity)}</div><div class="text-xs text-slate-500">$${fNum(t.price)} x ${fNum(t.quantity)}</div></div><button onClick=${()=>handleDelete('trades', t.id)} class="p-2 text-slate-700 hover:text-red-400"><${Icon} name="trash" size=${14}/></button></div>
+                                        <div class="text-right flex items-center gap-3 pr-2"><div><div class="text-sm font-bold text-slate-200">$${fNum(t.price * t.quantity)}</div><div class="text-xs text-slate-500">$${fNum(t.price)} x ${t.quantity}</div></div><button onClick=${()=>deleteItem('trades', t.id)} class="p-2 text-slate-700 hover:text-red-400"><${Icon} name="trash" size=${14}/></button></div>
                                     </div>
                                 `)}
+                            </div>
+                        `}
+                        ${tab === 'settings' && html`
+                            <div class="space-y-4 animate-fade-in">
+                                <div class="bg-slate-900 p-5 rounded-xl border border-slate-800">
+                                    <h3 class="font-bold mb-4 flex items-center gap-2"><${Icon} name="settings" size=${18} class="text-indigo-400"/> 系統管理</h3>
+                                    <div class="space-y-4">
+                                        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                                            <p class="text-xs text-slate-400 mb-3 leading-relaxed">您可以將之前的單機備份檔匯入，系統會自動同步至雲端資料庫。</p>
+                                            <label class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer transition-colors">
+                                                <${Icon} name="upload" size=${16}/> 匯入舊備份並同步
+                                                <input type="file" accept=".json" onChange=${handleImport} class="hidden" />
+                                            </label>
+                                        </div>
+                                        <button onClick=${() => {
+                                            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a'); a.href = url; a.download = `stock_cloud_backup.json`; a.click();
+                                        }} class="w-full bg-slate-800 text-white py-3 rounded-xl text-sm font-bold flex justify-center items-center gap-2 border border-slate-700">
+                                            <${Icon} name="download" size=${16}/> 匯出雲端備份
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         `}
                     </div>
@@ -368,11 +393,10 @@
                             <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-5 space-y-4 animate-slide-up">
                                 <div class="flex justify-between items-center"><h3 class="font-bold">新增交易</h3><button onClick=${()=>setModal(null)}><${Icon} name="x" class="text-slate-400"/></button></div>
                                 <div class="flex bg-slate-800 p-1 rounded-xl"><button onClick=${()=>setForms(p=>({...p, trade:{...p.trade, type:'buy'}}))} class="flex-1 py-2 text-sm font-bold rounded-lg ${forms.trade.type==='buy'?'bg-red-500 text-white':'text-slate-400'}">買入</button><button onClick=${()=>setForms(p=>({...p, trade:{...p.trade, type:'sell'}}))} class="flex-1 py-2 text-sm font-bold rounded-lg ${forms.trade.type==='sell'?'bg-green-500 text-white':'text-slate-400'}">賣出</button></div>
-                                <div class="relative"><input type="text" placeholder="輸入代號搜尋 (如 AAPL)" value=${forms.trade.code} onInput=${e=>handleCode(e.target.value)} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none uppercase focus:border-indigo-500"/>${search.results.length > 0 && html`<ul class="absolute top-full w-full bg-slate-800 border border-slate-700 rounded-lg z-50 max-h-48 overflow-auto">${search.results.map(s=>html`<li onClick=${()=>{setForms(p=>({...p, trade:{...p.trade, code:s.symbol, name:s.shortname}})); setSearch({loading:false, results:[]})}} class="p-3 hover:bg-slate-700 flex justify-between border-b border-slate-700/50"><span>${s.symbol}</span><span class="text-xs text-slate-400">${s.shortname}</span></li>`)}</ul>`}</div>
+                                <div class="relative"><input type="text" placeholder="代號搜尋" value=${forms.trade.code} onInput=${e=>handleCode(e.target.value)} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none uppercase focus:border-indigo-500"/>${search.results.length > 0 && html`<ul class="absolute top-full w-full bg-slate-800 border border-slate-700 rounded-lg z-50 max-h-48 overflow-auto">${search.results.map(s=>html`<li onClick=${()=>{setForms(p=>({...p, trade:{...p.trade, code:s.symbol, name:s.shortname}})); setSearch({loading:false, results:[]})}} class="p-3 hover:bg-slate-700 flex justify-between border-b border-slate-700/50 cursor-pointer"><span>${s.symbol}</span><span class="text-xs text-slate-400">${s.shortname}</span></li>`)}</ul>`}</div>
                                 <div class="grid grid-cols-2 gap-4"><div><label class="text-[10px] text-slate-500 ml-1">日期</label><input type="date" value=${forms.trade.date} onInput=${e=>setForms(p=>({...p, trade:{...p.trade, date:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none"/></div><div><label class="text-[10px] text-slate-500 ml-1">股數</label><input type="number" value=${forms.trade.quantity} onInput=${e=>setForms(p=>({...p, trade:{...p.trade, quantity:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none"/></div></div>
-                                <div><label class="text-[10px] text-slate-500 ml-1">成交單價</label><input type="number" step="0.01" value=${forms.trade.price} onInput=${e=>setForms(p=>({...p, trade:{...p.trade, price:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/></div>
-                                <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800 space-y-2"><div class="flex justify-between items-center text-xs text-slate-400"><span>預算{forms.trade.type==='buy'?'支出':'收入'}</span><span class="${forms.trade.type==='buy'?'text-red-400':'text-green-400'}">${forms.trade.type==='buy'?'-':'+'}$${fNum(Math.abs(previewCost))}</span></div><div class="flex justify-between items-center text-xs font-bold pt-2 border-t border-slate-800/50"><span class="text-slate-300">餘額預覽</span><div class="text-right"><span class="${previewRemaining<0?'text-purple-400':'text-white'}">$${fNum(previewRemaining)}</span></div></div></div>
-                                <button onClick=${()=>handleSave('trades', forms.trade)} class="w-full bg-indigo-600 py-3 rounded-xl font-bold">確認</button>
+                                <div><label class="text-[10px] text-slate-500 ml-1">單價</label><input type="number" step="0.01" value=${forms.trade.price} onInput=${e=>setForms(p=>({...p, trade:{...p.trade, price:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/></div>
+                                <button onClick=${()=>handleSave('trades', forms.trade)} class="w-full bg-indigo-600 py-3 rounded-xl font-bold">確認交易</button>
                             </div>
                         </div>
                     `}
@@ -384,7 +408,7 @@
                                 <div class="flex bg-slate-800 p-1 rounded-xl"><button onClick=${()=>setForms(p=>({...p, cash:{...p.cash, type:'deposit'}}))} class="flex-1 py-2 text-sm font-bold rounded-lg ${forms.cash.type==='deposit'?'bg-blue-600 text-white':'text-slate-400'}">入金</button><button onClick=${()=>setForms(p=>({...p, cash:{...p.cash, type:'withdraw'}}))} class="flex-1 py-2 text-sm font-bold rounded-lg ${forms.cash.type==='withdraw'?'bg-orange-600 text-white':'text-slate-400'}">出金</button></div>
                                 <input type="date" value=${forms.cash.date} onInput=${e=>setForms(p=>({...p, cash:{...p.cash, date:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/>
                                 <input type="number" placeholder="金額" value=${forms.cash.amount} onInput=${e=>setForms(p=>({...p, cash:{...p.cash, amount:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/>
-                                <input type="text" placeholder="備註 (選填)" value=${forms.cash.note} onInput=${e=>setForms(p=>({...p, cash:{...p.cash, note:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/>
+                                <input type="text" placeholder="備註" value=${forms.cash.note} onInput=${e=>setForms(p=>({...p, cash:{...p.cash, note:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/>
                                 <button onClick=${()=>handleSave('cashFlows', forms.cash)} class="w-full bg-indigo-600 py-3 rounded-xl font-bold">確認</button>
                             </div>
                         </div>
@@ -394,7 +418,7 @@
                         <div class="fixed inset-0 bg-black/80 z-50 flex items-end justify-center p-4 sm:items-center">
                             <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-5 space-y-4 animate-slide-up">
                                 <div class="flex justify-between items-center"><h3 class="font-bold">修正數據: ${forms.correction.code}</h3><button onClick=${()=>setModal(null)}><${Icon} name="x" class="text-slate-400"/></button></div>
-                                <div class="space-y-1"><label class="text-xs text-slate-500 ml-1">修正後總股數</label><input type="number" value=${forms.correction.qty} onInput=${e=>setForms(p=>({...p, correction:{...p.correction, qty:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/></div>
+                                <div class="space-y-1"><label class="text-xs text-slate-500 ml-1">修正後股數</label><input type="number" value=${forms.correction.qty} onInput=${e=>setForms(p=>({...p, correction:{...p.correction, qty:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/></div>
                                 <div class="space-y-1"><label class="text-xs text-slate-500 ml-1">修正後平均成本</label><input type="number" step="0.01" value=${forms.correction.avgCost} onInput=${e=>setForms(p=>({...p, correction:{...p.correction, avgCost:e.target.value}}))} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none"/></div>
                                 <button onClick=${()=>{handleSave('corrections', {[forms.correction.code]:{qty:forms.correction.qty, avgCost:forms.correction.avgCost}})}} class="w-full bg-yellow-600 py-3 rounded-xl font-bold">確認修正</button>
                             </div>
@@ -402,6 +426,12 @@
                     `}
                 </div>
             `;
+        };
+
+        const deleteItem = async (type, id) => {
+            if(!confirm('確定刪除？')) return;
+            const db = getFirestore(fbApp);
+            await deleteDoc(doc(db, `/artifacts/${appId}/users/${fbUser.uid}/${type}`, id));
         };
 
         render(html`<${App} />`, document.getElementById('app'));
