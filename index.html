@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Stock Manager</title>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
@@ -23,7 +24,7 @@
     </style>
 </head>
 <body>
-    <div id="loader"><div class="spinner"></div><div style="margin-top:15px; font-size:12px; color:#94a3b8;">載入 V12 效能修復版...</div></div>
+    <div id="loader"><div class="spinner"></div><div style="margin-top:15px; font-size:12px; color:#94a3b8;">載入 V13 多線路版...</div></div>
     <div id="app"></div>
 
     <script type="module">
@@ -33,7 +34,6 @@
         import htm from 'https://esm.sh/htm@3.1.1';
         const html = htm.bind(h);
 
-        // --- ICON 元件 (使用 memo 優化效能) ---
         const Icon = memo(({ name, size = 18, className = "" }) => {
             const paths = {
                 wallet: html`<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />`,
@@ -55,15 +55,34 @@
                 loader: html`<path d="M21 12a9 9 0 1 1-6.219-8.56" />`,
                 cal: html`<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
                 download: html`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>`,
-                upload: html`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>`,
-                refresh: html`<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>`
+                upload: html`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>`
             };
             return html`<svg xmlns="http://www.w3.org/2000/svg" width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class=${className}>${paths[name] || html`<circle cx="12" cy="12" r="10" />`}</svg>`;
         });
 
-        // --- 主應用程式 ---
+        // --- 網路請求核心 (多重線路) ---
+        const fetchWithProxy = async (targetUrl, signal) => {
+            // 定義多條代理線路 (優先順序: corsproxy -> allorigins -> codetabs)
+            const proxies = [
+                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+            ];
+
+            for (const createProxyUrl of proxies) {
+                try {
+                    const res = await fetch(createProxyUrl(targetUrl), { signal });
+                    if (!res.ok) continue;
+                    return await res.json();
+                } catch (e) {
+                    if (signal?.aborted) throw e;
+                    continue; // 失敗則嘗試下一條線路
+                }
+            }
+            throw new Error('All proxies failed');
+        };
+
         const App = () => {
-            // 初始化資料 (向下相容)
             const [data, setData] = useState(() => {
                 try {
                     const keys = ['stock_app_v12', 'stock_app_v11', 'stock_app_v10', 'stock_app_v9'];
@@ -79,10 +98,7 @@
             const [modal, setModal] = useState(null);
             const [forms, setForms] = useState({ trade: { id: null, date: new Date().toISOString().split('T')[0], code: '', type: 'buy', price: '', quantity: '', fee: 0 }, cash: { id: null, date: new Date().toISOString().split('T')[0], type: 'deposit', amount: '', note: '' }, correction: { code: '', qty: '', avgCost: '' } });
             
-            // 搜尋與更新狀態
             const [search, setSearch] = useState({ loading: false, results: [] });
-            
-            // 更新狀態： progress 顯示 (目前/總數)
             const [update, setUpdate] = useState({ loading: false, current: 0, total: 0, status: '' });
             
             const searchAbortController = useRef(null);
@@ -119,18 +135,22 @@
             const fNum = n => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
             const fInt = n => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
 
+            // --- 優化的搜尋 (使用多重線路) ---
             const searchStock = async (q) => {
                 if(!q) return setSearch({loading:false, results:[]});
+                
                 if (searchAbortController.current) searchAbortController.current.abort();
                 const controller = new AbortController();
                 searchAbortController.current = controller;
+
                 setSearch(p=>({...p, loading:true}));
                 try {
                     const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${q}&quotesCount=5&newsCount=0&_t=${Date.now()}`;
-                    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { signal: controller.signal });
-                    const json = await res.json();
+                    const json = await fetchWithProxy(url, controller.signal);
                     setSearch({ loading:false, results: json.quotes?.filter(x=>x.isYahooFinance)||[] });
-                } catch (e) { if (e.name !== 'AbortError') setSearch({ loading:false, results:[] }); }
+                } catch (e) {
+                    if (e.name !== 'AbortError') setSearch({ loading:false, results:[] });
+                }
             };
 
             const handleCode = (val) => {
@@ -139,50 +159,36 @@
                 searchTimer.current = setTimeout(() => { if(val.length>1) searchStock(val); else setSearch({loading:false, results:[]}); }, 300);
             };
 
-            const selectSuggestion = (s) => {
-                setForms(p => ({ 
-                    ...p, 
-                    trade: { ...p.trade, code: s.symbol, name: s.shortname || s.longname || s.symbol } 
-                }));
-                setSearch({ loading: false, results: [] });
-            };
-
-            // --- V12 優化：價格更新邏輯 (進度條 + 並行處理) ---
+            // --- 優化的價格更新 (並行 + 多重線路 + 錯誤處理) ---
             const updatePrices = async () => {
                 const codes = stats.holdings.map(h=>h.code);
                 if(codes.length === 0) return;
 
                 setUpdate({loading:true, current:0, total:codes.length, status:'啟動中...'});
                 const newP = {...data.prices};
-                
-                // 批次處理：每次 5 個
                 const BATCH_SIZE = 5;
+
                 for(let i=0; i<codes.length; i+=BATCH_SIZE) {
                     const batch = codes.slice(i, i+BATCH_SIZE);
                     setUpdate(p=>({...p, current:i, status:`更新中... ${i}/${codes.length}`}));
                     
-                    // 並行請求
                     await Promise.all(batch.map(async (c) => {
                         try {
                             const controller = new AbortController();
-                            const id = setTimeout(() => controller.abort(), 3500); // 3.5秒超時，避免卡住
-                            
+                            const id = setTimeout(() => controller.abort(), 5000); // 5秒逾時
                             const url = `https://query1.finance.yahoo.com/v8/finance/chart/${c}?interval=1d&range=1d&_t=${Date.now()}`;
-                            const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { signal: controller.signal });
+                            const json = await fetchWithProxy(url, controller.signal);
                             clearTimeout(id);
                             
-                            if(res.ok) {
-                                const json = await res.json();
-                                const p = json.chart?.result?.[0]?.meta?.regularMarketPrice;
-                                if(p) newP[c] = p;
-                            }
-                        } catch {}
+                            const p = json.chart?.result?.[0]?.meta?.regularMarketPrice;
+                            if(p) newP[c] = p;
+                        } catch (e) { console.warn(`Failed ${c}`, e); }
                     }));
                 }
                 
                 setData(p=>({...p, prices:newP})); 
                 setUpdate({loading:false, current:codes.length, total:codes.length, status:'完成'});
-                setTimeout(() => setUpdate({loading:false, current:0, total:0, status:''}), 1000);
+                setTimeout(() => setUpdate({loading:false, current:0, total:0, status:''}), 1500);
             };
 
             // CRUD & Helpers
@@ -191,19 +197,15 @@
             const deleteItem = (type, id) => { if(!confirm('確定刪除？')) return; setData(p => ({ ...p, [type]: p[type].filter(x => x.id !== id) })); };
             const openAddCash = () => { setForms(p => ({...p, cash: { id: null, date: new Date().toISOString().split('T')[0], type: 'deposit', amount: '', note: '' }})); setModal('cash'); };
             const openEditCash = (item) => { setForms(p => ({...p, cash: { ...item }})); setModal('cash'); };
-            
+            const selectSuggestion = (s) => { setForms(p => ({ ...p, trade: { ...p.trade, code: s.symbol, name: s.shortname || s.longname || s.symbol } })); setSearch({ loading: false, results: [] }); };
             const handleManualPrice = (code, val) => { const p = parseFloat(val); if(isNaN(p)) return; setData(prev => ({ ...prev, prices: { ...prev.prices, [code]: p } })); };
-
-            // Backup
             const exportData = () => { const blob = new Blob([JSON.stringify(data)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `stock_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); };
             const importData = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const json = JSON.parse(e.target.result); if (json.trades) { if(confirm('警告：覆蓋現有資料？')) { setData(json); alert('還原成功'); } } else { alert('格式錯誤'); } } catch { alert('失敗'); } }; reader.readAsText(file); e.target.value=''; };
-
             const previewCost = (Number(forms.trade.price)*Number(forms.trade.quantity))+(forms.trade.type==='buy'?(Number(forms.trade.fee)||0):-(Number(forms.trade.fee)||0));
             const previewRemaining = stats.cash+(forms.trade.type==='buy'?-previewCost:previewCost);
 
             return html`
                 <div class="pb-safe-bottom min-h-screen">
-                    <!-- Header -->
                     <div class="bg-slate-900 px-5 pt-safe-top pb-4 rounded-b-3xl shadow-2xl border-b border-slate-800">
                         <div class="pt-2 grid grid-cols-2 gap-6 mb-4">
                             <div>
@@ -225,11 +227,10 @@
                         </div>
                         <div class="flex justify-between items-center h-6">
                             ${stats.isReinv ? html`<div class="bg-indigo-500/10 rounded-full px-2 py-0.5 flex items-center gap-1 border border-indigo-500/20"><${Icon} name="zap" size=${10} class="text-indigo-400"/><span class="text-[9px] text-indigo-300">複利模式 ($${fInt(stats.reinvAmt)})</span></div>` : html`<div></div>`}
-                            <div class="ml-auto flex items-center gap-1 text-[9px] text-emerald-400 bg-emerald-900/10 px-2 py-0.5 rounded-full border border-emerald-900/30"><${Icon} name="save" size=${9}/> V12</div>
+                            <div class="ml-auto flex items-center gap-1 text-[9px] text-emerald-400 bg-emerald-900/10 px-2 py-0.5 rounded-full border border-emerald-900/30"><${Icon} name="save" size=${9}/> V13 Multi-Proxy</div>
                         </div>
                     </div>
 
-                    <!-- Tabs -->
                     <div class="flex px-2 mt-2 sticky top-0 bg-slate-950/90 z-30 backdrop-blur-md border-b border-slate-800/50">
                         ${['portfolio', 'capital', 'transactions', 'settings'].map(t => html`
                             <button key=${t} onClick=${() => setTab(t)} class="flex-1 py-3 text-xs font-bold text-center border-b-2 transition-colors ${tab === t ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-600'}">
@@ -241,16 +242,15 @@
                     <div class="p-4 space-y-4 pb-24">
                         ${tab === 'portfolio' && html`
                             <div class="space-y-4 anim-fade">
-                                <button onClick=${updatePrices} disabled={update.loading} class="w-full border py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${update.loading ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-slate-900 border-slate-800 text-indigo-400'}">
+                                <button onClick=${updatePrices} disabled=${update.loading} class="w-full border py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${update.loading ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-slate-900 border-slate-800 text-indigo-400'}">
                                     ${update.loading 
                                         ? html`<span class="flex items-center gap-2"><${Icon} name="loader" size=${14} class="animate-spin"/> <span>${update.status}</span></span>`
-                                        : html`<span class="flex items-center gap-2"><${Icon} name="refresh" size=${14}/> 更新現價 (Yahoo Proxy)</span>`
+                                        : html`<span class="flex items-center gap-2"><${Icon} name="globe" size=${14}/> 更新現價 (多線路)</span>`
                                     }
                                 </button>
                                 ${stats.holdings.length === 0 && html`<div class="text-center py-20 text-slate-600 text-sm">暫無持倉，請新增交易</div>`}
                                 ${stats.holdings.map(s => html`
                                     <div key=${s.code} class="bg-slate-900 p-4 rounded-xl border border-slate-800 relative group">
-                                        <!-- Header: Name & Price -->
                                         <div class="flex justify-between items-start mb-4">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-10 h-10 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-sm border border-slate-700">${s.code.includes('.TW')?s.code.split('.')[0]:s.code.substring(0,2)}</div>
@@ -262,26 +262,23 @@
                                             </div>
                                         </div>
                                         
-                                        <!-- Cost & Qty Section (Redesigned) -->
-                                        <div class="bg-slate-800/30 rounded-lg p-3 grid grid-cols-2 gap-y-2 gap-x-4 mb-3 border border-slate-800/50 relative">
+                                        <!-- 明顯的成本區塊 -->
+                                        <div class="bg-slate-800/40 rounded-lg p-3 grid grid-cols-2 gap-y-2 gap-x-4 mb-3 border border-slate-700/50 relative">
                                             <button onClick=${() => { setForms(p=>({...p, correction: {code:s.code, qty:s.qty, avgCost:s.avg}})); setModal('correction'); }} class="absolute top-2 right-2 text-slate-600 z-10 hover:text-indigo-400"><${Icon} name="edit" size=${14}/></button>
-                                            
-                                            <div class="col-span-2 flex justify-between border-b border-slate-700/30 pb-2 mb-1">
-                                                <span class="text-xs text-slate-500">持倉股數</span>
+                                            <div class="col-span-2 flex justify-between border-b border-slate-700/50 pb-2 mb-1">
+                                                <span class="text-xs text-slate-400">持倉股數</span>
                                                 <span class="text-sm font-medium text-white">${fNum(s.qty)}</span>
                                             </div>
-                                            
                                             <div class="flex flex-col">
-                                                <span class="text-[10px] text-slate-500 mb-0.5">平均成本 (Avg)</span>
+                                                <span class="text-[10px] text-slate-500 mb-0.5">平均成本</span>
                                                 <span class="text-sm font-bold text-slate-300">$${fNum(s.avg)}</span>
                                             </div>
                                             <div class="flex flex-col text-right">
-                                                <span class="text-[10px] text-slate-500 mb-0.5">總成本 (Total Cost)</span>
+                                                <span class="text-[10px] text-slate-500 mb-0.5">總成本</span>
                                                 <span class="text-sm font-bold text-slate-300">$${fInt(s.cost)}</span>
                                             </div>
                                         </div>
 
-                                        <!-- P/L Footer -->
                                         <div class="flex justify-between items-center bg-slate-950/30 p-2.5 rounded-lg border border-slate-800/30">
                                             <div class="text-xs text-slate-400">未實現損益</div>
                                             <div class="text-base font-bold flex gap-2 ${s.pl >= 0 ? 'text-red-400' : 'text-green-400'}">
@@ -347,7 +344,7 @@
                                         <label class="bg-slate-800 text-white py-3 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer border border-slate-700"><${Icon} name="upload" size=${16}/> 匯入<input type="file" accept=".json" onChange=${importData} class="hidden" /></label>
                                     </div>
                                 </div>
-                                <div class="text-center text-[10px] text-slate-600 mt-8">V12 Performance</div>
+                                <div class="text-center text-[10px] text-slate-600 mt-8">V13 Multi-Proxy</div>
                             </div>
                         `}
                     </div>
