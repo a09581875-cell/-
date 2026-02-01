@@ -35,7 +35,7 @@
 <body>
     <div id="loader">
         <div class="spinner"></div>
-        <div id="loader-status" style="margin-top:15px; font-size:12px; color:#94a3b8;">穩定核心補全版 V16.55...</div>
+        <div id="loader-status" style="margin-top:15px; font-size:12px; color:#94a3b8;">穩定核心補全版 V16.60...</div>
     </div>
     <div id="app"></div>
 
@@ -58,10 +58,10 @@
         const fInt = (n) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n || 0);
 
         // ==========================================
-        //  Firebase 配置 (已多重核對與物理鎖定)
+        //  Firebase 配置 (已核對鎖定參數)
         // ==========================================
         const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyD1k6xVEja5RSYdbuYqBMgXvH99uvJ8hwI", // 保持小寫 j
+            apiKey: "AIzaSyD1k6xVEja5RSYdbuYqBMgXvH99uvJ8hwI", 
             authDomain: "stock-manager-a6176.firebaseapp.com",
             projectId: "stock-manager-a6176",
             storageBucket: "stock-manager-a6176.firebasestorage.app",
@@ -85,6 +85,7 @@
                 sparkles: html`<path d="m12 3 1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M21 17v4"/><path d="M19 19h4"/>`,
                 pencil: html`<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />`,
                 download: html`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>`,
+                upload: html`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>`,
                 loader: html`<path d="M21 12a9 9 0 1 1-6.219-8.56" />`,
                 alert: html`<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`
             };
@@ -119,11 +120,11 @@
                             <h3 class="font-bold text-indigo-400 flex items-center gap-2"><${Icon} name="sparkles" size=${18} /> ${title}</h3>
                             <button onClick=${onClose} class="p-2 text-slate-400 hover:text-white transition-colors"><${Icon} name="x" /></button>
                         </div>
-                        <div class="p-6 overflow-y-auto prose no-scrollbar">
+                        <div class="p-6 overflow-y-auto prose no-scrollbar text-slate-300">
                             ${loading ? html`<div class="flex flex-col items-center py-10 space-y-4"><div class="spinner"></div><div class="text-slate-500 text-sm animate-pulse text-center">AI 正在深度分析中...</div></div>` : html`<div dangerouslySetInnerHTML=${{ __html: content.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></div>`}
                         </div>
                         <div class="p-4 border-t border-slate-800 text-center bg-slate-900 rounded-b-2xl">
-                            <button onClick=${onClose} class="bg-slate-800 hover:bg-slate-700 px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all">關閉</button>
+                            <button onClick=${onClose} class="bg-slate-800 hover:bg-slate-700 px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95">關閉</button>
                         </div>
                     </div>
                 </div>
@@ -154,7 +155,7 @@
                                 <span class="text-xs text-slate-500 font-bold">$</span>
                                 <input type="number" step="0.01" value=${stock.price} onInput=${e => onEditPrice(stock.code, e.target.value)} class="bg-transparent text-right font-bold text-xl w-24 outline-none ${stock.price > stock.avg ? 'text-red-400' : 'text-green-400'}"/>
                             </div>
-                            <div class="text-[9px] text-slate-600 font-bold mt-1 uppercase">現價 (可編輯)</div>
+                            <div class="text-[9px] text-slate-600 font-bold mt-1 uppercase tracking-widest">市場現價</div>
                         </div>
                     </div>
                     
@@ -199,11 +200,12 @@
             const [cashForm, setCashForm] = useState({ id: null, date: new Date().toISOString().split('T')[0], type: 'deposit', amount: '', note: '' });
             const [correctionForm, setCorrectionForm] = useState({ code: '', qty: '', avgCost: '' });
             const [tradeForm, setTradeForm] = useState({ id: null, date: new Date().toISOString().split('T')[0], code: '', name: '', type: 'buy', price: '', quantity: '', fee: 0 });
+            
             const [search, setSearch] = useState({ loading: false, results: [] });
             const searchTimer = useRef(null);
             const [pendingDelete, setPendingDelete] = useState({ type: '', id: '' });
 
-            // 1. 初始化 Firebase (鎖定穩定版連線)
+            // 1. 初始化 Firebase (恢復穩定版驗證邏輯)
             useEffect(() => {
                 const initFirebase = async () => {
                     try {
@@ -226,7 +228,7 @@
                 initFirebase();
             }, []);
 
-            // 2. 數據同步
+            // 2. 數據同步 (統一路徑鎖定)
             useEffect(() => {
                 if (fbStatus === 'connected' && fbUser && fbApp) {
                     const db = getFirestore(fbApp);
@@ -239,7 +241,7 @@
                 }
             }, [fbStatus, fbUser, fbApp]);
 
-            // 3. 計算
+            // 3. 計算核心數據
             const stats = useMemo(() => {
                 let inv = {}, tIn = 0, tOut = 0;
                 [...data.trades].sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(t => {
@@ -262,7 +264,7 @@
                 return { holdings, princ, cash, sVal, sCost, assets, totalPL: assets-princ, totalROI: princ>0?(assets-princ)/princ*100:0, stockPL: sVal-sCost, stockROI: sCost>0?(sVal-sCost)/sCost*100:0 };
             }, [data]);
 
-            // --- ✨ 功能修正：極速搜尋 (解決 NG 問題) ---
+            // --- ✨ 極速搜尋 ---
             const performSearch = async (q) => {
                 if(!q || q.length < 1) return setSearch({loading:false, results:[]});
                 setSearch(p=>({...p, loading:true}));
@@ -274,11 +276,11 @@
                 } catch { setSearch({ loading:false, results:[] }); }
             };
 
-            // --- 功能：更新現價 (補回功能) ---
+            // --- 功能：更新現價 ---
             const handleUpdatePrices = async () => {
                 const stocks = stats.holdings.map(h=>h.code);
                 if(!stocks.length) return;
-                setUpdate({loading:true, status: '更新現價中...'});
+                setUpdate({loading:true, status: '更新報價中...'});
                 const newP = {...data.prices};
                 for(let i=0; i<stocks.length; i+=3) {
                     const batch = stocks.slice(i, i+3);
@@ -316,14 +318,53 @@
                 try { await deleteDoc(doc(getFirestore(fbApp), `/artifacts/${activeProjectId}/users/${fbUser.uid}/${type}`, id)); } catch (err) { console.error(err); }
             };
 
+            // --- 備份功能：導出與導入 ---
             const handleExport = () => {
-                const backup = { trades: data.trades, cashFlows: data.cashFlows, prices: data.prices, corrections: data.corrections, exportDate: new Date().toISOString() };
+                const backup = { trades: data.trades, cashFlows: data.cashFlows, prices: data.prices, corrections: data.corrections, time: new Date().toISOString() };
                 const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url; a.download = `StockBackup_${new Date().toISOString().split('T')[0]}.json`;
                 a.click(); URL.revokeObjectURL(url);
-                alert("✅ 資料備份已下載");
+            };
+
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file || !fbUser) return;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const json = JSON.parse(event.target.result);
+                        if (!confirm("確定要導入備份並覆蓋目前的雲端設定嗎？（紀錄將採累加模式）")) return;
+                        setUpdate({loading:true, status: '備份恢復中...'});
+                        const db = getFirestore(fbApp);
+                        const base = `/artifacts/${activeProjectId}/users/${fbUser.uid}`;
+                        
+                        const uploadBatch = async (type, items) => {
+                            if(!items) return;
+                            for (const item of items) {
+                                const {id, ...rest} = item;
+                                await addDoc(collection(db, `${base}/${type}`), rest);
+                            }
+                        };
+                        
+                        if(json.trades) await uploadBatch('trades', json.trades);
+                        if(json.cashFlows) await uploadBatch('cashFlows', json.cashFlows);
+                        if(json.prices) await setDoc(doc(db, `${base}/settings/prices`), json.prices);
+                        if(json.corrections) await setDoc(doc(db, `${base}/settings/corrections`), json.corrections);
+                        
+                        alert("✅ 備份導入完成！");
+                    } catch (err) { alert("❌ 格式錯誤或連線中斷"); }
+                    setUpdate({loading:false, status: ''});
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
+
+            const runAI = async (p) => {
+                setAi({ open: true, loading: true, content: '', title: 'AI 投資助理' });
+                const res = await callGemini(p);
+                setAi(prev => ({ ...prev, loading: false, content: res }));
             };
 
             useEffect(() => { if (fbStatus !== 'connecting') { const l = document.getElementById('loader'); if(l) { l.style.opacity=0; setTimeout(()=>l.remove(), 500); } } }, [fbStatus]);
@@ -337,19 +378,19 @@
                     <div class="bg-slate-900 px-5 pt-6 pb-4 rounded-b-3xl shadow-2xl border-b border-slate-800 relative text-white">
                         <div class="grid grid-cols-2 gap-6 mb-4">
                             <div>
-                                <div class="text-slate-400 text-[10px] uppercase font-bold mb-1 flex items-center gap-1 tracking-widest font-bold"><${Icon} name="wallet" size=${10}/> 資金總淨值</div>
-                                <div class="text-2xl font-bold tracking-tight">$${fNum(stats.assets)}</div>
-                                <div class="mt-2 pt-2 border-t border-slate-800 text-xs text-slate-500 font-bold">投入本金 $${fInt(stats.princ)}<div class="font-bold ${stats.totalPL >= 0 ? 'text-indigo-400' : 'text-slate-400'}">${stats.totalPL>=0?'+':''}${fInt(stats.totalPL)} (${stats.totalROI.toFixed(1)}%)</div></div>
+                                <div class="text-slate-400 text-[10px] uppercase font-bold mb-1 flex items-center gap-1 tracking-widest font-bold font-bold"><${Icon} name="wallet" size=${10}/> 資金總淨值</div>
+                                <div class="text-2xl font-bold tracking-tight font-bold">$${fNum(stats.assets)}</div>
+                                <div class="mt-2 pt-2 border-t border-slate-800 text-xs text-slate-500 font-bold font-bold">投入本金 $${fInt(stats.princ)}<div class="font-bold font-bold ${stats.totalPL >= 0 ? 'text-indigo-400' : 'text-slate-400'}">${stats.totalPL>=0?'+':''}${fInt(stats.totalPL)} (${stats.totalROI.toFixed(1)}%)</div></div>
                             </div>
-                            <div class="pl-6 border-l border-slate-800 font-bold">
-                                <div class="text-slate-400 text-[10px] uppercase font-bold mb-1 flex items-center gap-1 tracking-widest"><${Icon} name="pie" size=${10}/> 股票市值</div>
-                                <div class="text-2xl font-bold tracking-tight font-bold">$${fNum(stats.sVal)}</div>
-                                <div class="mt-2 pt-2 border-t border-slate-800 text-xs text-slate-500 font-bold">持倉成本 $${fInt(stats.sCost)}<div class="font-bold ${stats.stockPL >= 0 ? 'text-red-400' : 'text-green-400'}">${stats.stockPL>=0?'+':''}${fInt(stats.stockPL)} (${stats.stockROI.toFixed(1)}%)</div></div>
+                            <div class="pl-6 border-l border-slate-800 font-bold font-bold">
+                                <div class="text-slate-400 text-[10px] uppercase font-bold mb-1 flex items-center gap-1 tracking-widest font-bold"><${Icon} name="pie" size=${10}/> 股票市值</div>
+                                <div class="text-2xl font-bold tracking-tight font-bold font-bold font-bold">$${fNum(stats.sVal)}</div>
+                                <div class="mt-2 pt-2 border-t border-slate-800 text-xs text-slate-500 font-bold font-bold">持倉成本 $${fInt(stats.sCost)}<div class="font-bold font-bold font-bold ${stats.stockPL >= 0 ? 'text-red-400' : 'text-green-400'}">${stats.stockPL>=0?'+':''}${fInt(stats.stockPL)} (${stats.stockROI.toFixed(1)}%)</div></div>
                             </div>
                         </div>
                         <div class="flex justify-between items-center h-6">
-                            <div class="flex items-center gap-1 text-[9px] ${fbStatus==='connected' ? 'text-blue-400' : 'text-red-400'} font-extrabold tracking-widest"><${Icon} name=${fbStatus==='connected' ? 'cloud' : 'alert'} size=${9}/> ${fbStatus==='connected' ? '雲端已連線' : '正在連線...'}</div>
-                            <button onClick=${async () => { setAi({open:true, loading:true, title:'AI 組合分析'}); const res = await callGemini('分析資產組合概況：$' + stats.assets.toFixed(0)); setAi(p=>({...p, loading:false, content:res})); }} class="bg-indigo-600/20 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/30 active:scale-95 shadow-lg flex items-center gap-1"><${Icon} name="sparkles" size=${10}/><span class="text-[9px] font-bold">AI 智慧分析</span></button>
+                            <div class="flex items-center gap-1 text-[9px] ${fbStatus==='connected' ? 'text-blue-400' : 'text-red-400'} font-extrabold tracking-widest font-bold"><${Icon} name=${fbStatus==='connected' ? 'cloud' : 'alert'} size=${9}/> ${fbStatus==='connected' ? '雲端已連線' : '正在連線...'}</div>
+                            <button onClick=${()=>runAI('分析資產組合概況：$' + stats.assets.toFixed(0))} class="bg-indigo-600/20 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/30 active:scale-95 shadow-lg flex items-center gap-1 font-bold font-bold"><${Icon} name="sparkles" size=${10}/><span class="text-[9px]">AI 智慧分析</span></button>
                         </div>
                     </div>
 
@@ -359,17 +400,16 @@
 
                     <div class="p-4 space-y-4 pb-24">
                         ${tab === 'portfolio' && html`
-                            <div class="space-y-4 animate-fade-in font-bold">
+                            <div class="space-y-4 animate-fade-in font-bold font-bold">
                                 <button onClick=${handleUpdatePrices} disabled=${update.loading} class="w-full border border-slate-800 py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 active:scale-95 bg-slate-900 text-indigo-400 shadow-lg"><${Icon} name="globe" size=${14}/> 更新雲端現價</button>
                                 ${stats.holdings.map(s => html`<${PortfolioItem} key=${s.code} stock=${s} onAnalyzeStock=${(c)=>runAI('分析股票 ' + c)} onEditPrice=${(c,v)=>handleSave('prices', {...data.prices, [c]: parseFloat(v)||0})} onEditCorrection=${(s)=>{setCorrectionForm({code:s.code, qty:s.qty, avgCost:s.avgCost}); setModal('correction')}} />`)}
-                                ${stats.holdings.length === 0 && html`<div class="text-center py-20 text-slate-600 font-bold">目前無持倉數據</div>`}
                             </div>
                         `}
                         ${tab === 'capital' && html`
-                            <div class="space-y-4 anim-fade text-white font-bold">
-                                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex justify-between items-center shadow-lg">
-                                    <div><div class="text-slate-400 text-[10px] font-bold uppercase mb-1">可用現金餘額</div><div class="text-3xl font-bold">$${fNum(stats.cash)}</div></div>
-                                    <button onClick=${()=>{setCashForm({id:null, date:new Date().toISOString().split('T')[0], type:'deposit', amount:'', note:''}); setModal('cash')}} class="bg-indigo-600 text-white px-5 py-3 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-lg"><${Icon} name="plus" size=${16} /> 資金</button>
+                            <div class="space-y-4 anim-fade text-white font-bold font-bold font-bold">
+                                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex justify-between items-center shadow-lg font-bold font-bold">
+                                    <div><div class="text-slate-400 text-[10px] font-bold uppercase mb-1 tracking-widest font-bold">可用現金餘額</div><div class="text-3xl font-bold font-bold font-bold font-bold">$${fNum(stats.cash)}</div></div>
+                                    <button onClick=${()=>{setCashForm({id:null, date:new Date().toISOString().split('T')[0], type:'deposit', amount:'', note:''}); setModal('cash')}} class="bg-indigo-600 text-white px-5 py-3 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-lg font-bold"><${Icon} name="plus" size=${16} /> 資金</button>
                                 </div>
                                 ${data.cashFlows.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(f => html`
                                     <div key=${f.id} class="bg-slate-900 p-3 rounded-xl flex justify-between items-center border border-slate-800 group mb-2 font-bold font-bold">
@@ -389,19 +429,19 @@
                             </div>
                         `}
                         ${tab === 'transactions' && html`
-                            <div class="space-y-4 anim-fade text-white font-bold">
+                            <div class="space-y-4 anim-fade text-white font-bold font-bold font-bold">
                                 <button onClick=${()=>{setTradeForm({id:null, date:new Date().toISOString().split('T')[0], code:'', name:'', type:'buy', price:'', quantity:'', fee:0}); setModal('trade')}} class="w-full bg-slate-900 border border-slate-700 border-dashed text-indigo-400 py-4 rounded-xl text-sm font-bold active:scale-95 shadow-md">新增交易紀錄</button>
                                 ${data.trades.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t => html`
-                                    <div key=${t.id} class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center group relative mb-2">
-                                        <div class="flex gap-3 text-white font-bold">
+                                    <div key=${t.id} class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center group relative mb-2 font-bold font-bold">
+                                        <div class="flex gap-3 text-white font-bold font-bold font-bold">
                                             <div class="text-[10px] font-bold px-2 py-1 rounded h-fit mt-0.5 min-w-[3.5em] text-center ${t.type==='buy'?'bg-red-500/10 text-red-400':'bg-green-500/10 text-green-400'}">${t.type==='buy'?'BUY':'SELL'}</div>
-                                            <div><div class="font-bold text-base font-bold">${t.code}</div><div class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">${t.date}</div></div>
+                                            <div><div class="font-bold text-base font-bold">${t.code}</div><div class="text-[10px] text-slate-500 uppercase tracking-widest">${t.date}</div></div>
                                         </div>
-                                        <div class="text-right flex items-center gap-3 pr-1 text-white">
-                                            <div><div class="text-sm font-bold font-bold">$${(t.price * t.quantity).toLocaleString()}</div><div class="text-[10px] text-slate-500 font-mono font-bold">$${t.price} x ${t.quantity}</div></div>
+                                        <div class="text-right flex items-center gap-3 pr-1 text-white font-bold">
+                                            <div><div class="text-sm font-bold font-bold">$${(t.price * t.quantity).toLocaleString()}</div><div class="text-[10px] text-slate-500 font-mono font-bold font-bold font-bold">$${t.price} x ${t.quantity}</div></div>
                                             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity border-l border-slate-800 pl-3">
-                                                <button onClick=${()=>{setTradeForm(t); setModal('trade')}} class="p-1.5 text-slate-500 hover:text-indigo-400 bg-slate-800 rounded-lg"><${Icon} name="pencil" size=${14}/></button>
-                                                <button onClick=${()=>triggerDelete('trades', t.id)} class="p-1.5 text-slate-500 hover:text-red-400 bg-slate-800 rounded-lg"><${Icon} name="trash" size=${14}/></button>
+                                                <button onClick=${()=>{setTradeForm(t); setModal('trade')}} class="p-1.5 text-slate-500 hover:text-indigo-400 bg-slate-800 rounded-lg font-bold"><${Icon} name="pencil" size=${14}/></button>
+                                                <button onClick=${()=>triggerDelete('trades', t.id)} class="p-1.5 text-slate-500 hover:text-red-400 bg-slate-800 rounded-lg font-bold"><${Icon} name="trash" size=${14}/></button>
                                             </div>
                                         </div>
                                     </div>
@@ -409,74 +449,79 @@
                             </div>
                         `}
                         ${tab === 'settings' && html`
-                            <div class="space-y-4 animate-fade-in text-white font-bold font-bold">
-                                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-                                    <h3 class="font-bold mb-5 flex items-center gap-2 text-white font-bold"><${Icon} name="settings" size=${18} class="text-indigo-400"/> 資料管理與備份</h3>
-                                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-4 font-bold">
-                                        <p class="text-xs text-slate-400 font-bold font-bold">備份導出：將雲端紀錄導出為 JSON 檔案。</p>
-                                        <button onClick=${handleExport} class="w-full bg-indigo-600 text-white py-3.5 rounded-xl text-sm font-bold active:scale-[0.98] shadow-lg flex justify-center items-center gap-2 font-bold"><${Icon} name="download" size=${16}/> 導出雲端備份 (JSON)</button>
+                            <div class="space-y-4 animate-fade-in text-white font-bold font-bold font-bold font-bold font-bold font-bold">
+                                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl font-bold font-bold font-bold">
+                                    <h3 class="font-bold mb-5 flex items-center gap-2"><${Icon} name="settings" size=${18} class="text-indigo-400"/> 資料管理與備份</h3>
+                                    <div class="space-y-4 font-bold font-bold">
+                                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+                                            <p class="text-xs text-slate-400 font-bold font-bold">資料導出：下載 JSON 備份檔。</p>
+                                            <button onClick=${handleExport} class="w-full bg-slate-800 hover:bg-slate-700 text-white py-3.5 rounded-xl text-sm font-bold active:scale-[0.98] shadow-lg flex justify-center items-center gap-2 border border-slate-700 font-bold font-bold"><${Icon} name="download" size=${16}/> 導出備份 (JSON)</button>
+                                        </div>
+                                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+                                            <p class="text-xs text-slate-400 font-bold font-bold">資料導入：選取備份檔案並恢復。</p>
+                                            <label class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-lg shadow-indigo-900/30 font-bold font-bold font-bold font-bold font-bold font-bold font-bold">
+                                                <${Icon} name="upload" size=${16}/> 導入備份 (JSON)
+                                                <input type="file" accept=".json" onChange=${handleImport} class="hidden" />
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
-                                <p class="text-center text-[10px] text-slate-700 tracking-widest font-mono uppercase">Stable Core V16.55 | Turbo Search</p>
                             </div>
                         `}
                     </div>
 
-                    <!-- Modals: 新增/修改交易 (搜尋引擎修正) -->
+                    <!-- Modals -->
                     ${modal === 'trade' && html`
                         <div class="fixed inset-0 modal-overlay z-[200] flex items-end justify-center p-4 sm:items-center animate-fade-in">
                             <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-5 space-y-4 animate-slide-up shadow-2xl relative overflow-visible font-bold">
-                                <div class="flex justify-between items-center text-white"><h3 class="font-bold text-lg">${tradeForm.id ? '修改交易紀錄' : '新增交易'}</h3><button onClick=${()=>setModal(null)} class="p-2 text-slate-400"><${Icon} name="x" size=${24}/></button></div>
-                                <div class="flex bg-slate-800 p-1 rounded-xl shadow-inner"><button onClick=${()=>setTradeForm({...tradeForm, type:'buy'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg ${tradeForm.type==='buy'?'bg-red-500 text-white shadow-lg':'text-slate-400'}">買入</button><button onClick=${()=>setTradeForm({...tradeForm, type:'sell'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg ${tradeForm.type==='sell'?'bg-green-500 text-white shadow-lg':'text-slate-400'}">賣出</button></div>
+                                <div class="flex justify-between items-center text-white"><h3 class="font-bold text-lg">${tradeForm.id ? '修改交易' : '新增交易'}</h3><button onClick=${()=>setModal(null)} class="p-2 text-slate-400"><${Icon} name="x" size=${24}/></button></div>
+                                <div class="flex bg-slate-800 p-1 rounded-xl shadow-inner font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold"><button onClick=${()=>setTradeForm({...tradeForm, type:'buy'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg ${tradeForm.type==='buy'?'bg-red-500 text-white shadow-lg font-bold':'text-slate-400'}">買入</button><button onClick=${()=>setTradeForm({...tradeForm, type:'sell'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg ${tradeForm.type==='sell'?'bg-green-500 text-white shadow-lg font-bold':'text-slate-400'}">賣出</button></div>
                                 <div class="relative z-[500] font-bold">
-                                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">標代碼 (極速搜尋)</label>
-                                    <input type="text" value=${tradeForm.code} onInput=${e=>{setTradeForm({...tradeForm, code:e.target.value.toUpperCase()}); if(searchTimer.current) clearTimeout(searchTimer.current); searchTimer.current = setTimeout(()=>performSearch(e.target.value), 400);}} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 mt-1 text-white text-base outline-none uppercase shadow-inner"/>
-                                    ${search.loading && html`<div class="absolute right-3 bottom-3 animate-spin"><${Icon} name="loader" size=${18} class="text-indigo-400"/></div>`}
-                                    ${search.results.length > 0 && html`<ul class="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-[600] search-scroll ring-1 ring-black/50">${search.results.map(s => html`<li onClick=${()=>{setTradeForm({...tradeForm, code: s.symbol, name: s.description || s.symbol}); setSearch({loading:false, results:[]})}} class="p-4 hover:bg-slate-700 active:bg-indigo-600/50 cursor-pointer border-b border-slate-700/50 text-white"><div class="flex justify-between font-bold"><span>${s.symbol}</span><span class="text-[9px] text-slate-400 uppercase">${s.exchange}</span></div><div class="text-[11px] text-slate-400 truncate">${s.description}</div></li>`)}</ul>`}
+                                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest font-bold">標代碼 (極速搜尋)</label>
+                                    <input type="text" value=${tradeForm.code} onInput=${e=>{setTradeForm({...tradeForm, code:e.target.value.toUpperCase()}); if(searchTimer.current) clearTimeout(searchTimer.current); searchTimer.current = setTimeout(()=>performSearch(e.target.value), 400);}} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 mt-1 text-white text-base outline-none uppercase shadow-inner font-bold font-bold font-bold"/>
+                                    ${search.loading && html`<div class="absolute right-3 bottom-3 animate-spin"><${Icon} name="loader" size=${18} class="text-indigo-400 font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold"/></div>`}
+                                    ${search.results.length > 0 && html`<ul class="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-[600] search-scroll ring-1 ring-black/50 font-bold font-bold font-bold">${search.results.map(s => html`<li onClick=${()=>{setTradeForm({...tradeForm, code: s.symbol, name: s.description || s.symbol}); setSearch({loading:false, results:[]})}} class="p-4 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 text-white font-bold font-bold"><div class="flex justify-between font-bold"><span>${s.symbol}</span><span class="text-[9px] text-slate-400 uppercase">${s.exchange}</span></div><div class="text-[11px] text-slate-400 truncate">${s.description}</div></li>`)}</ul>`}
                                 </div>
-                                <div class="grid grid-cols-2 gap-4">
+                                <div class="grid grid-cols-2 gap-4 font-bold">
                                     <input type="date" value=${tradeForm.date} onInput=${e=>setTradeForm({...tradeForm, date:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none shadow-inner font-bold"/>
                                     <input type="number" step="0.01" placeholder="股數" value=${tradeForm.quantity} onInput=${e=>setTradeForm({...tradeForm, quantity:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none shadow-inner font-bold"/>
                                 </div>
-                                <input type="number" step="0.01" placeholder="成交單價 (成本)" value=${tradeForm.price} onInput=${e=>setTradeForm({...tradeForm, price:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none shadow-inner font-bold"/>
+                                <input type="number" step="0.01" placeholder="單價 (成本)" value=${tradeForm.price} onInput=${e=>setTradeForm({...tradeForm, price:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none shadow-inner font-bold font-bold font-bold font-bold font-bold"/>
                                 <button onClick=${onTradeSubmit} class="w-full bg-indigo-600 py-4 rounded-xl font-bold text-white active:scale-95 transition-all text-lg font-bold">確認儲存</button>
                             </div>
                         </div>
                     `}
 
-                    <!-- Modals: 資金異動 -->
                     ${modal === 'cash' && html`
                         <div class="fixed inset-0 modal-overlay z-[120] flex items-end justify-center p-4 sm:items-center animate-fade-in text-white font-bold">
-                            <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-5 space-y-4 shadow-2xl animate-slide-up">
-                                <div class="flex justify-between items-center font-bold font-bold"><h3 class="font-bold text-lg">${cashForm.id ? '修改紀錄' : '資金異動'}</h3><button onClick=${()=>setModal(null)} class="p-2 text-slate-400 font-bold font-bold"><${Icon} name="x" size=${18}/></button></div>
-                                <div class="flex bg-slate-800 p-1 rounded-xl shadow-inner font-bold font-bold"><button onClick=${()=>setCashForm({...cashForm, type:'deposit'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg ${cashForm.type==='deposit'?'bg-blue-600 text-white shadow-lg font-bold':'text-slate-400'}">入金</button><button onClick=${()=>setCashForm({...cashForm, type:'withdraw'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg ${cashForm.type==='withdraw'?'bg-orange-600 text-white shadow-lg font-bold':'text-slate-400'}">出金</button></div>
-                                <div class="space-y-3 font-bold"><input type="date" value=${cashForm.date} onInput=${e=>setCashForm({...cashForm, date:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner"/><input type="number" placeholder="金額" value=${cashForm.amount} onInput=${e=>setCashForm({...cashForm, amount:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner"/><input type="text" placeholder="備註" value=${cashForm.note} onInput=${e=>setCashForm({...cashForm, note:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner"/></div>
-                                <button type="button" onClick=${onCashSubmit} class="w-full bg-indigo-600 py-3.5 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all font-bold font-bold">確認儲存</button>
-                            </div>
-                        </div>
-                    `}
-
-                    <!-- Modals: 修正持倉 -->
-                    ${modal === 'correction' && html`
-                        <div class="fixed inset-0 modal-overlay z-[120] flex items-end justify-center p-4 sm:items-center animate-fade-in text-white font-bold">
                             <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-5 space-y-4 animate-slide-up shadow-2xl font-bold">
-                                <div class="flex justify-between items-center"><h3 class="font-bold flex items-center gap-2 text-lg">修正持倉: ${correctionForm.code}</h3><button onClick=${()=>setModal(null)} class="p-2 text-slate-400"><${Icon} name="x"/></button></div>
-                                <div class="space-y-3 font-bold"><input type="number" value=${correctionForm.qty} onInput=${e=>setCorrectionForm({...correctionForm, qty:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-lg outline-none shadow-inner" placeholder="修正後股數"/><input type="number" step="0.01" value=${correctionForm.avgCost} onInput=${e=>setCorrectionForm({...correctionForm, avgCost:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-lg outline-none shadow-inner" placeholder="修正後平均成本"/></div>
-                                <button type="button" onClick=${onCorrectionSubmit} class="w-full bg-yellow-600 py-4 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all text-lg font-bold">確認修正</button>
+                                <div class="flex justify-between items-center font-bold font-bold font-bold"><h3 class="font-bold text-lg">${cashForm.id ? '修改紀錄' : '資金異動'}</h3><button onClick=${()=>setModal(null)} class="p-2 text-slate-400 font-bold font-bold font-bold"><${Icon} name="x" size=${18}/></button></div>
+                                <div class="flex bg-slate-800 p-1 rounded-xl shadow-inner font-bold font-bold font-bold"><button onClick=${()=>setCashForm({...cashForm, type:'deposit'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg ${cashForm.type==='deposit'?'bg-blue-600 text-white shadow-lg font-bold font-bold font-bold':'text-slate-400'}">入金</button><button onClick=${()=>setCashForm({...cashForm, type:'withdraw'})} class="flex-1 py-2.5 text-sm font-bold rounded-lg ${cashForm.type==='withdraw'?'bg-orange-600 text-white shadow-lg font-bold font-bold font-bold font-bold':'text-slate-400'}">出金</button></div>
+                                <div class="space-y-3 font-bold font-bold font-bold"><input type="date" value=${cashForm.date} onInput=${e=>setCashForm({...cashForm, date:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner font-bold font-bold font-bold"/><input type="number" placeholder="金額" value=${cashForm.amount} onInput=${e=>setCashForm({...cashForm, amount:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner font-bold font-bold font-bold font-bold"/><input type="text" placeholder="備註" value=${cashForm.note} onInput=${e=>setCashForm({...cashForm, note:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 shadow-inner font-bold font-bold font-bold font-bold"/></div>
+                                <button type="button" onClick=${()=>handleSave('cashFlows', cashForm)} class="w-full bg-indigo-600 py-3.5 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all font-bold font-bold font-bold">確認儲存</button>
                             </div>
                         </div>
                     `}
 
-                    <!-- 自定義刪除確認 -->
+                    ${modal === 'correction' && html`
+                        <div class="fixed inset-0 modal-overlay z-[120] flex items-end justify-center p-4 sm:items-center animate-fade-in text-white font-bold font-bold font-bold">
+                            <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-5 space-y-4 animate-slide-up shadow-2xl font-bold font-bold font-bold">
+                                <div class="flex justify-between items-center"><h3 class="font-bold flex items-center gap-2 text-lg">修正持倉: ${correctionForm.code}</h3><button onClick=${()=>setModal(null)} class="p-2 text-slate-400 font-bold font-bold font-bold font-bold"><${Icon} name="x"/></button></div>
+                                <div class="space-y-3 font-bold font-bold font-bold"><input type="number" value=${correctionForm.qty} onInput=${e=>setCorrectionForm({...correctionForm, qty:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-lg outline-none shadow-inner font-bold font-bold font-bold" placeholder="修正後股數"/><input type="number" step="0.01" value=${correctionForm.avgCost} onInput=${e=>setCorrectionForm({...correctionForm, avgCost:e.target.value})} class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-lg outline-none shadow-inner font-bold font-bold font-bold" placeholder="修正後平均成本"/></div>
+                                <button type="button" onClick=${onCorrectionSubmit} class="w-full bg-yellow-600 py-4 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all text-lg font-bold font-bold font-bold">確認修正</button>
+                            </div>
+                        </div>
+                    `}
+
                     ${modal === 'deleteConfirm' && html`
-                        <div class="fixed inset-0 modal-overlay z-[900] flex items-center justify-center p-6 animate-fade-in text-white font-bold">
+                        <div class="fixed inset-0 modal-overlay z-[900] flex items-center justify-center p-6 animate-fade-in text-white font-bold font-bold font-bold font-bold">
                             <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-red-900/30 p-8 space-y-6 shadow-2xl animate-slide-up">
                                 <div class="flex flex-col items-center text-center space-y-4 font-bold">
-                                    <div class="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-2 shadow-inner border border-red-500/20 font-bold"><${Icon} name="trash" size=${40} /></div>
+                                    <div class="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-2 shadow-inner border border-red-500/20 font-bold font-bold font-bold"><${Icon} name="trash" size=${40} /></div>
                                     <h3 class="text-2xl font-bold tracking-tight text-white font-bold font-bold">確定要刪除嗎？</h3>
-                                    <p class="text-sm text-slate-400 font-bold">移除後雲端資料將永久消失。</p>
+                                    <p class="text-sm text-slate-400 font-bold font-bold font-bold">移除後雲端資料將永久消失。</p>
                                 </div>
-                                <div class="flex gap-4 font-bold"><button onClick=${()=>setModal(null)} class="flex-1 py-4 rounded-2xl bg-slate-800 text-white font-bold active:scale-95 border border-slate-700 font-bold font-bold font-bold">取消</button><button onClick=${executeDelete} class="flex-1 py-4 rounded-2xl bg-red-600 text-white font-bold active:scale-95 shadow-lg shadow-red-900/40 font-bold">確認刪除</button></div>
+                                <div class="flex gap-4 font-bold font-bold font-bold font-bold font-bold font-bold font-bold"><button onClick=${()=>setModal(null)} class="flex-1 py-4 rounded-2xl bg-slate-800 text-white font-bold active:scale-95 border border-slate-700 font-bold font-bold font-bold font-bold">取消</button><button onClick=${executeDelete} class="flex-1 py-4 rounded-2xl bg-red-600 text-white font-bold active:scale-95 shadow-lg shadow-red-900/40 font-bold font-bold font-bold font-bold">確認刪除</button></div>
                             </div>
                         </div>
                     `}
